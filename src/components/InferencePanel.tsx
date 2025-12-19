@@ -73,7 +73,12 @@ export function InferencePanel() {
         {/* Header */}
         <header className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--card-border)]">
           <h1 className="text-xl font-semibold">MoE Inference</h1>
-          <ServerStatus isInferring={isLoading} />
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-[var(--muted)] font-mono">
+              {process.env.NEXT_PUBLIC_GIT_COMMIT}
+            </span>
+            <ServerStatus isInferring={isLoading} />
+          </div>
         </header>
 
         {/* Main Grid */}
