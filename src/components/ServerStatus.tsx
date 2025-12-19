@@ -15,13 +15,15 @@ const STATUS_CONFIG: Record<ServerStatusType, { color: string; label: string; pu
 interface Props {
   onStatusChange?: (status: ServerStatusType) => void;
   isInferring?: boolean;
+  lastSuccessfulRequest?: Date | null;
 }
 
-export function ServerStatus({ onStatusChange, isInferring = false }: Props) {
+export function ServerStatus({ onStatusChange, isInferring = false, lastSuccessfulRequest }: Props) {
   const [status, setStatus] = useState<ServerStatusType>('unknown');
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [isWarming, setIsWarming] = useState(false);
   const hasStartedWarmup = useRef(false);
+  const prevSuccessfulRequest = useRef<Date | null>(null);
 
   const updateStatus = useCallback(async () => {
     const newStatus = await checkServerStatus();
@@ -41,6 +43,17 @@ export function ServerStatus({ onStatusChange, isInferring = false }: Props) {
     setIsWarming(false);
     onStatusChange?.(newStatus);
   }, [onStatusChange]);
+
+  // When a successful request comes in, mark as warm
+  useEffect(() => {
+    if (lastSuccessfulRequest && lastSuccessfulRequest !== prevSuccessfulRequest.current) {
+      prevSuccessfulRequest.current = lastSuccessfulRequest;
+      setStatus('warm');
+      setLastChecked(lastSuccessfulRequest);
+      setIsWarming(false);
+      onStatusChange?.('warm');
+    }
+  }, [lastSuccessfulRequest, onStatusChange]);
 
   useEffect(() => {
     // Only run warmup once on mount

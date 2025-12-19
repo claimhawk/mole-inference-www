@@ -17,6 +17,7 @@ export function InferencePanel() {
   const [response, setResponse] = useState<InferenceResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('output');
+  const [lastSuccessfulRequest, setLastSuccessfulRequest] = useState<Date | null>(null);
 
   const handleInference = useCallback(async () => {
     if (!imageB64) return;
@@ -40,6 +41,7 @@ export function InferencePanel() {
 
       const result = await runInference(payload);
       setResponse(result);
+      setLastSuccessfulRequest(new Date());
 
       if (result.error) {
         setError(result.error);
@@ -77,7 +79,7 @@ export function InferencePanel() {
             <span className="text-xs text-[var(--muted)] font-mono">
               {process.env.NEXT_PUBLIC_GIT_COMMIT}
             </span>
-            <ServerStatus isInferring={isLoading} />
+            <ServerStatus isInferring={isLoading} lastSuccessfulRequest={lastSuccessfulRequest} />
           </div>
         </header>
 
