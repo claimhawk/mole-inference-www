@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import type { ServerStatus as ServerStatusType } from '@/lib/types';
-import { checkServerStatus } from '@/lib/api';
+import { checkServerStatus, warmupServer } from '@/lib/api';
 
 const STATUS_CONFIG: Record<ServerStatusType, { color: string; label: string; pulse: boolean }> = {
-  unknown: { color: 'bg-gray-500', label: 'Unknown', pulse: false },
+  unknown: { color: 'bg-gray-500', label: 'Checking...', pulse: true },
   sleeping: { color: 'bg-gray-500', label: 'Sleeping', pulse: false },
-  waking: { color: 'bg-yellow-400', label: 'Waking', pulse: true },
-  warm: { color: 'bg-green-400', label: 'Warm', pulse: false },
+  waking: { color: 'bg-yellow-400', label: 'Warming up...', pulse: true },
+  warm: { color: 'bg-green-400', label: 'Ready', pulse: false },
   active: { color: 'bg-blue-500', label: 'Active', pulse: true },
 };
 
@@ -20,27 +20,54 @@ interface Props {
 export function ServerStatus({ onStatusChange, isInferring = false }: Props) {
   const [status, setStatus] = useState<ServerStatusType>('unknown');
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [isWarming, setIsWarming] = useState(false);
+  const hasStartedWarmup = useRef(false);
 
   const updateStatus = useCallback(async () => {
     const newStatus = await checkServerStatus();
     setStatus(newStatus);
     setLastChecked(new Date());
     onStatusChange?.(newStatus);
+    return newStatus;
+  }, [onStatusChange]);
+
+  const triggerWarmup = useCallback(async () => {
+    setIsWarming(true);
+    setStatus('waking');
+
+    const newStatus = await warmupServer();
+    setStatus(newStatus);
+    setLastChecked(new Date());
+    setIsWarming(false);
+    onStatusChange?.(newStatus);
   }, [onStatusChange]);
 
   useEffect(() => {
-    // Initial check
-    updateStatus();
+    // Only run warmup once on mount
+    if (hasStartedWarmup.current) return;
+    hasStartedWarmup.current = true;
 
-    // Poll every 30 seconds when not actively inferring
+    // Start with a quick check, then warmup if not already warm
+    const init = async () => {
+      const currentStatus = await updateStatus();
+
+      // If not warm, trigger warmup
+      if (currentStatus !== 'warm') {
+        triggerWarmup();
+      }
+    };
+
+    init();
+
+    // Poll every 30 seconds when not actively inferring or warming
     const interval = setInterval(() => {
-      if (!isInferring) {
+      if (!isInferring && !isWarming) {
         updateStatus();
       }
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [updateStatus, isInferring]);
+  }, [updateStatus, triggerWarmup, isInferring, isWarming]);
 
   // Show 'active' status when inferring
   const displayStatus = isInferring ? 'active' : status;
@@ -63,12 +90,12 @@ export function ServerStatus({ onStatusChange, isInferring = false }: Props) {
         </span>
       )}
       <button
-        onClick={updateStatus}
-        disabled={isInferring}
+        onClick={isWarming ? undefined : triggerWarmup}
+        disabled={isInferring || isWarming}
         className="ml-auto text-xs text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-50 transition-colors"
-        title="Refresh status"
+        title={isWarming ? 'Warming up...' : 'Warm up server'}
       >
-        ↻
+        {isWarming ? '⏳' : '↻'}
       </button>
     </div>
   );
