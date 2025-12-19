@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 
 const AUTH_COOKIE = 'moe-auth';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // Allow access to login page and API routes
   if (
     request.nextUrl.pathname === '/login' ||
