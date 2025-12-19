@@ -1,6 +1,6 @@
 import type { InferenceRequest, InferenceResponse, ServerStatus } from './types';
 
-const API_BASE = process.env.NEXT_PUBLIC_INFERENCE_API || 'https://claimhawk--mole-inference-server-infer.modal.run';
+const API_BASE = process.env.NEXT_PUBLIC_INFERENCE_API || 'https://claimhawk--mole-inference-infer.modal.run';
 
 export async function runInference(request: InferenceRequest): Promise<InferenceResponse> {
   const response = await fetch(API_BASE, {
