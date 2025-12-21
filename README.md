@@ -34,3 +34,19 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+---
+
+<div align="center">
+
+### 🚀 We're Hiring
+
+**ClaimHawk** builds computer-use agents that automate real work using vision-language models.
+
+If you have a passion for machine learning (and some real background) and want to see the path to **100x developer** — we have open intern positions.
+
+**No resumes.** Just shoot an email with your qualifications and passions to:
+
+📧 **hello@claimhawk.app**
+
+</div>
