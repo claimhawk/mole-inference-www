@@ -1,15 +1,35 @@
 import type { InferenceRequest, InferenceResponse, ServerStatus } from './types';
 
-function getApiBase(): string {
-  const base = process.env.NEXT_PUBLIC_INFERENCE_API;
-  if (!base) throw new Error('NEXT_PUBLIC_INFERENCE_API environment variable required');
-  return base;
+function getRequiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} environment variable required`);
+  return value;
 }
 
-const API_BASE = getApiBase();
+// Endpoint URLs for different services
+const ENDPOINTS = {
+  moe: () => getRequiredEnv('NEXT_PUBLIC_INFERENCE_API'),
+  ocr: () => process.env.NEXT_PUBLIC_OCR_API,
+  sam: () => process.env.NEXT_PUBLIC_SAM_API,
+};
+
+function getEndpointForRequest(request: InferenceRequest): string {
+  if (request.adapter === 'ocr') {
+    const url = ENDPOINTS.ocr();
+    if (!url) throw new Error('NEXT_PUBLIC_OCR_API not configured');
+    return url;
+  }
+  if (request.adapter === 'segment') {
+    const url = ENDPOINTS.sam();
+    if (!url) throw new Error('NEXT_PUBLIC_SAM_API not configured');
+    return url;
+  }
+  return ENDPOINTS.moe();
+}
 
 export async function runInference(request: InferenceRequest): Promise<InferenceResponse> {
-  const response = await fetch(API_BASE, {
+  const endpoint = getEndpointForRequest(request);
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
@@ -28,7 +48,7 @@ export async function checkServerStatus(): Promise<ServerStatus> {
 
   try {
     const start = Date.now();
-    const response = await fetch(API_BASE, {
+    const response = await fetch(ENDPOINTS.moe(), {
       method: 'OPTIONS',
       signal: controller.signal,
     });
@@ -63,7 +83,7 @@ export async function warmupServer(): Promise<ServerStatus> {
 
   try {
     const start = Date.now();
-    const response = await fetch(`${API_BASE}/health`, {
+    const response = await fetch(`${ENDPOINTS.moe()}/health`, {
       method: 'GET',
       signal: controller.signal,
     });
