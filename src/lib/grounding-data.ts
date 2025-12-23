@@ -171,26 +171,32 @@ export const GROUNDING_DATA: GroundingData = {
       screens: [
         {
           screenName: 'edit-claim',
-          imageSize: [1159, 865],
+          imageSize: [1160, 865],
           screenBboxRU: [198, 75, 802, 876],
           elements: [
             {
-              id: 'el_billing_provider',
+              id: 'el_1765048100029',
+              label: 'procedures-grid',
+              type: 'grid',
+              bbox: { x: 2, y: 205, width: 1145, height: 181 },
+            },
+            {
+              id: 'el_1765116857913',
+              label: 'claim-form',
+              type: 'dropdown',
+              bbox: { x: 350, y: 80, width: 126, height: 20 },
+            },
+            {
+              id: 'el_1765116950571',
               label: 'billing-provider',
               type: 'dropdown',
-              bbox: { x: 100, y: 50, width: 200, height: 30 },
+              bbox: { x: 351, y: 102, width: 148, height: 19 },
             },
             {
-              id: 'el_treating_provider',
+              id: 'el_1765116975599',
               label: 'treating-provider',
               type: 'dropdown',
-              bbox: { x: 100, y: 100, width: 200, height: 30 },
-            },
-            {
-              id: 'el_claim_form',
-              label: 'claim-form',
-              type: 'grid',
-              bbox: { x: 50, y: 150, width: 700, height: 400 },
+              bbox: { x: 352, y: 123, width: 148, height: 19 },
             },
           ],
         },

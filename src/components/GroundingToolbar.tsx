@@ -2,6 +2,33 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { getExperts, getScreensForExpert, getElementsForScreen, getElement, getScreenBbox } from '@/lib/grounding-data';
+import type { BBox } from '@/lib/grounding-types';
+
+/** Transform element bbox (in pixel coords relative to screen) to RU coords on full desktop */
+function transformElementToDesktop(
+  elementBbox: BBox,
+  screenImageSize: [number, number],
+  screenBboxRU: [number, number, number, number]
+): [number, number, number, number] {
+  const [screenX1, screenY1, screenX2, screenY2] = screenBboxRU;
+  const screenWidth = screenX2 - screenX1;
+  const screenHeight = screenY2 - screenY1;
+  const [imgWidth, imgHeight] = screenImageSize;
+
+  // Convert element pixel coords to percentage of screen image
+  const elX1Pct = elementBbox.x / imgWidth;
+  const elY1Pct = elementBbox.y / imgHeight;
+  const elX2Pct = (elementBbox.x + elementBbox.width) / imgWidth;
+  const elY2Pct = (elementBbox.y + elementBbox.height) / imgHeight;
+
+  // Transform to desktop RU coords
+  const x1 = Math.round(screenX1 + elX1Pct * screenWidth);
+  const y1 = Math.round(screenY1 + elY1Pct * screenHeight);
+  const x2 = Math.round(screenX1 + elX2Pct * screenWidth);
+  const y2 = Math.round(screenY1 + elY2Pct * screenHeight);
+
+  return [x1, y1, x2, y2];
+}
 
 interface Props {
   /** Currently active bbox index (0, 1, or 2) */
@@ -51,9 +78,24 @@ export function GroundingToolbar({ activeBboxIndex, onElementSelect }: Props) {
 
   const handleElementChange = useCallback((value: string) => {
     setSelectedElement(value);
-    // Element selection doesn't change bbox - screen bbox is already set
-    // Element just indicates which UI element to focus on within the screen
-  }, []);
+    if (!value || !selectedExpert || !selectedScreen) {
+      return;
+    }
+
+    // Get element and screen data
+    const result = getElement(selectedExpert, selectedScreen, value);
+    const screenBbox = getScreenBbox(selectedExpert, selectedScreen);
+
+    if (result && screenBbox) {
+      // Transform element bbox to desktop coordinates
+      const elementDesktopBbox = transformElementToDesktop(
+        result.element.bbox,
+        result.imageSize,
+        screenBbox
+      );
+      onElementSelect(elementDesktopBbox, null);
+    }
+  }, [selectedExpert, selectedScreen, onElementSelect]);
 
   const handleClear = useCallback(() => {
     setSelectedExpert('');
