@@ -436,37 +436,43 @@ function OutputTab({ response, sentDimensions }: { response: InferenceResponse; 
       )}
 
       {/* Tool Call */}
-      {args && (
-        <div className="bg-[var(--card)] rounded-lg p-3">
-          <div className="text-xs text-[var(--muted)] uppercase tracking-wider mb-2">Tool Call</div>
-          <div className="space-y-2">
-            {args.action && (
-              <div className="flex items-center gap-2">
-                <span className="text-[var(--muted)]">Action:</span>
-                <span className="font-mono text-yellow-400">{String(args.action)}</span>
-              </div>
-            )}
-            {args.coordinate && (
-              <div className="flex items-center gap-2">
-                <span className="text-[var(--muted)]">Coordinate:</span>
-                <span className="font-mono text-cyan-400">[{(args.coordinate as number[]).join(', ')}]</span>
-              </div>
-            )}
-            {args.annotation && (
-              <div className="flex items-center gap-2">
-                <span className="text-[var(--muted)]">Annotation:</span>
-                <span className="text-green-400">{String(args.annotation)}</span>
-              </div>
-            )}
-            {args.text && (
-              <div className="flex items-center gap-2">
-                <span className="text-[var(--muted)]">Text:</span>
-                <span className="text-orange-400">&quot;{String(args.text)}&quot;</span>
-              </div>
-            )}
+      {args && (() => {
+        const action = args.action as string | undefined;
+        const coordinate = args.coordinate as number[] | undefined;
+        const annotation = args.annotation as string | undefined;
+        const text = args.text as string | undefined;
+        return (
+          <div className="bg-[var(--card)] rounded-lg p-3">
+            <div className="text-xs text-[var(--muted)] uppercase tracking-wider mb-2">Tool Call</div>
+            <div className="space-y-2">
+              {action && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[var(--muted)]">Action:</span>
+                  <span className="font-mono text-yellow-400">{action}</span>
+                </div>
+              )}
+              {coordinate && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[var(--muted)]">Coordinate:</span>
+                  <span className="font-mono text-cyan-400">[{coordinate.join(', ')}]</span>
+                </div>
+              )}
+              {annotation && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[var(--muted)]">Annotation:</span>
+                  <span className="text-green-400">{annotation}</span>
+                </div>
+              )}
+              {text && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[var(--muted)]">Text:</span>
+                  <span className="text-orange-400">&quot;{text}&quot;</span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Raw JSON fallback */}
       {!args && (
