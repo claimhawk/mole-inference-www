@@ -7,11 +7,11 @@ interface Props {
   currentImage: string | null;
   annotations?: { coordinate?: [number, number]; bbox_2d?: [number, number, number, number] };
   enableBboxDraw?: boolean;
-  // Multi-bbox support
+  // Multi-bbox support (up to 3)
   drawnBboxes?: ([number, number, number, number] | null)[];
-  activeBboxIndex?: 0 | 1;
+  activeBboxIndex?: 0 | 1 | 2;
   onBboxChange?: (bbox: [number, number, number, number] | null) => void;
-  onBboxSelect?: (idx: 0 | 1) => void;
+  onBboxSelect?: (idx: 0 | 1 | 2) => void;
   // SAM masks - array of 2D boolean arrays, positioned within active bbox
   samMasks?: boolean[][][];
   // SAM detected boxes [x1, y1, x2, y2] in pixel coords relative to cropped region
@@ -38,7 +38,7 @@ function MagnifyIcon({ className }: { className?: string }) {
   );
 }
 
-export function ImageDropzone({ onImageSelect, currentImage, annotations, enableBboxDraw, drawnBboxes = [null, null], activeBboxIndex = 0, onBboxChange, onBboxSelect, samMasks, samBoxes }: Props) {
+export function ImageDropzone({ onImageSelect, currentImage, annotations, enableBboxDraw, drawnBboxes = [null, null, null], activeBboxIndex = 0, onBboxChange, onBboxSelect, samMasks, samBoxes }: Props) {
   // Get active bbox for drawing
   const drawnBbox = drawnBboxes[activeBboxIndex];
   const [isDragging, setIsDragging] = useState(false);
@@ -427,30 +427,35 @@ export function ImageDropzone({ onImageSelect, currentImage, annotations, enable
                   }}
                 />
               )}
-              {/* User-drawn bboxes (up to 2) */}
-              {drawnBboxes.map((bbox, idx) => bbox && (
-                <div
-                  key={idx}
-                  className={`absolute border-2 ${idx === 0 ? 'border-blue-400 bg-blue-400/20' : 'border-green-400 bg-green-400/20'} ${activeBboxIndex === idx ? 'border-solid' : 'border-dashed opacity-60'}`}
-                  style={{
-                    left: `${bbox[0] / 10}%`,
-                    top: `${bbox[1] / 10}%`,
-                    width: `${(bbox[2] - bbox[0]) / 10}%`,
-                    height: `${(bbox[3] - bbox[1]) / 10}%`,
-                  }}
-                >
-                  {/* Clickable label */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onBboxSelect?.(idx as 0 | 1);
+              {/* User-drawn bboxes (up to 3) */}
+              {drawnBboxes.map((bbox, idx) => {
+                if (!bbox) return null;
+                const colors = ['border-blue-400 bg-blue-400/20', 'border-green-400 bg-green-400/20', 'border-orange-400 bg-orange-400/20'];
+                const labelColors = ['bg-blue-500', 'bg-green-500', 'bg-orange-500'];
+                return (
+                  <div
+                    key={idx}
+                    className={`absolute border-2 ${colors[idx]} ${activeBboxIndex === idx ? 'border-solid' : 'border-dashed opacity-60'}`}
+                    style={{
+                      left: `${bbox[0] / 10}%`,
+                      top: `${bbox[1] / 10}%`,
+                      width: `${(bbox[2] - bbox[0]) / 10}%`,
+                      height: `${(bbox[3] - bbox[1]) / 10}%`,
                     }}
-                    className={`absolute -top-6 left-0 px-2 py-0.5 text-xs font-bold rounded ${idx === 0 ? 'bg-blue-500 text-white' : 'bg-green-500 text-white'} cursor-pointer hover:opacity-80`}
                   >
-                    {idx + 1}
-                  </button>
-                </div>
-              ))}
+                    {/* Clickable label */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onBboxSelect?.(idx as 0 | 1 | 2);
+                      }}
+                      className={`absolute -top-6 left-0 px-2 py-0.5 text-xs font-bold rounded ${labelColors[idx]} text-white cursor-pointer hover:opacity-80`}
+                    >
+                      {idx + 1}
+                    </button>
+                  </div>
+                );
+              })}
               {/* Drawing preview */}
               {isDrawing && drawStart && currentDraw && (
                 <div

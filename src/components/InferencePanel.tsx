@@ -19,11 +19,11 @@ export function InferencePanel() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('output');
   const [lastSuccessfulRequest, setLastSuccessfulRequest] = useState<Date | null>(null);
-  // Multi-bbox support (up to 2)
-  const [drawnBboxes, setDrawnBboxes] = useState<([number, number, number, number] | null)[]>([null, null]);
-  const [activeBboxIndex, setActiveBboxIndex] = useState<0 | 1>(0);
-  const [responses, setResponses] = useState<(InferenceResponse | null)[]>([null, null]);
-  const [sentImageDimensions, setSentImageDimensions] = useState<({ width: number; height: number } | null)[]>([null, null]);
+  // Multi-bbox support (up to 3)
+  const [drawnBboxes, setDrawnBboxes] = useState<([number, number, number, number] | null)[]>([null, null, null]);
+  const [activeBboxIndex, setActiveBboxIndex] = useState<0 | 1 | 2>(0);
+  const [responses, setResponses] = useState<(InferenceResponse | null)[]>([null, null, null]);
+  const [sentImageDimensions, setSentImageDimensions] = useState<({ width: number; height: number } | null)[]>([null, null, null]);
   const [sentPrompt, setSentPrompt] = useState<string | null>(null);
 
   // Crop image to bbox region and return as base64 with dimensions
@@ -81,13 +81,13 @@ export function InferencePanel() {
     setIsLoading(true);
     setError(null);
     setResponse(null);
-    setResponses([null, null]);
-    setSentImageDimensions([null, null]);
+    setResponses([null, null, null]);
+    setSentImageDimensions([null, null, null]);
     setSentPrompt(effectivePrompt);
 
     try {
-      const newResponses: (InferenceResponse | null)[] = [null, null];
-      const newDimensions: ({ width: number; height: number } | null)[] = [null, null];
+      const newResponses: (InferenceResponse | null)[] = [null, null, null];
+      const newDimensions: ({ width: number; height: number } | null)[] = [null, null, null];
 
       for (const { bbox, idx } of activeBboxes) {
         let imageToSend = imageB64;
@@ -139,11 +139,11 @@ export function InferencePanel() {
   const handleClear = useCallback(() => {
     setImageB64(null);
     setResponse(null);
-    setResponses([null, null]);
+    setResponses([null, null, null]);
     setError(null);
-    setDrawnBboxes([null, null]);
+    setDrawnBboxes([null, null, null]);
     setActiveBboxIndex(0);
-    setSentImageDimensions([null, null]);
+    setSentImageDimensions([null, null, null]);
     setSentPrompt(null);
   }, []);
 
@@ -166,7 +166,7 @@ export function InferencePanel() {
   }, [activeBboxIndex]);
 
   // Clear a specific bbox
-  const handleClearBbox = useCallback((idx: 0 | 1) => {
+  const handleClearBbox = useCallback((idx: 0 | 1 | 2) => {
     setDrawnBboxes(prev => {
       const newBboxes = [...prev] as ([number, number, number, number] | null)[];
       newBboxes[idx] = null;
@@ -274,8 +274,8 @@ export function InferencePanel() {
                 value={modelType}
                 onChange={(e) => {
                   setModelType(e.target.value as ModelType);
-                  setDrawnBboxes([null, null]);
-                  setResponses([null, null]);
+                  setDrawnBboxes([null, null, null]);
+                  setResponses([null, null, null]);
                   setResponse(null);
                   setError(null);
                 }}
@@ -325,13 +325,19 @@ export function InferencePanel() {
                 >
                   2 {drawnBboxes[1] ? '●' : '○'}
                 </button>
+                <button
+                  onClick={() => setActiveBboxIndex(2)}
+                  className={`px-2 py-1 text-xs rounded transition-colors ${activeBboxIndex === 2 ? 'bg-orange-500 text-white' : 'bg-[var(--card-border)] text-[var(--muted)] hover:text-white'}`}
+                >
+                  3 {drawnBboxes[2] ? '●' : '○'}
+                </button>
               </div>
             </div>
             <ImageDropzone
               onImageSelect={(img) => {
                 setImageB64(img);
-                setDrawnBboxes([null, null]);
-                setResponses([null, null]);
+                setDrawnBboxes([null, null, null]);
+                setResponses([null, null, null]);
                 setResponse(null);
                 setError(null);
               }}
@@ -454,10 +460,10 @@ export function InferencePanel() {
 
               {/* Multi-response grid or single response */}
               {responses.filter(r => r !== null).length > 1 ? (
-                <div className="grid grid-cols-2 gap-4">
+                <div className={`grid gap-4 ${responses.filter(r => r !== null).length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
                   {responses.map((resp, idx) => resp && (
                     <div key={idx} className="bg-[var(--background)] rounded-lg p-4 max-h-[400px] overflow-auto font-mono text-sm">
-                      <div className={`text-xs font-bold mb-3 ${idx === 0 ? 'text-blue-400' : 'text-green-400'}`}>
+                      <div className={`text-xs font-bold mb-3 ${idx === 0 ? 'text-blue-400' : idx === 1 ? 'text-green-400' : 'text-orange-400'}`}>
                         Region {idx + 1}
                       </div>
                       {activeTab === 'output' && (
