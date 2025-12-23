@@ -43,8 +43,9 @@ export function InferencePanel() {
       setResponse(result);
       setLastSuccessfulRequest(new Date());
 
-      if (result.error) {
-        setError(result.error);
+      const errorMsg = result.error as string | null | undefined;
+      if (errorMsg) {
+        setError(errorMsg);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -59,9 +60,11 @@ export function InferencePanel() {
     setError(null);
   }, []);
 
-  // Extract annotations from response
+  // Extract annotations from response (MoE responses have output field with tool_call)
   const annotations = response ? (() => {
-    const parsed = parseToolCall(response.output);
+    const output = response.output as string | undefined;
+    if (!output) return undefined;
+    const parsed = parseToolCall(output);
     if (!parsed?.toolCall) return undefined;
     return {
       coordinate: parsed.toolCall.coordinate as [number, number] | undefined,
@@ -219,7 +222,7 @@ export function InferencePanel() {
               )}
 
               {response && !error && activeTab === 'timings' && (
-                <TimingsTab timings={response.timings} />
+                <TimingsTab timings={response.timings as Record<string, number> | undefined} />
               )}
 
               {response && !error && activeTab === 'raw' && (
@@ -236,38 +239,18 @@ export function InferencePanel() {
 }
 
 function OutputTab({ response }: { response: InferenceResponse }) {
-  const parsed = parseToolCall(response.output);
-
+  // Just dump the whole response - no fancy parsing
   return (
-    <div className="space-y-4">
-      {parsed?.toolCall && (
-        <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-lg p-3">
-          {parsed.action && (
-            <div className="text-blue-400 mb-2 text-xs uppercase tracking-wider">
-              {parsed.action}
-            </div>
-          )}
-          <pre className="whitespace-pre-wrap break-words">
-            {JSON.stringify(parsed.toolCall, null, 2)}
-          </pre>
-        </div>
-      )}
-
-      {!parsed && (
-        <pre className="whitespace-pre-wrap break-words">{response.output}</pre>
-      )}
-
-      {/* Metadata */}
-      <div className="pt-4 border-t border-[var(--card-border)] space-y-2">
-        <MetadataItem label="Adapter" value={response.adapter} />
-        <MetadataItem label="Expert" value={response.expert?.toString() ?? 'N/A'} />
-        <MetadataItem label="Routed" value={response.routed ? 'Yes' : 'No'} />
-      </div>
-    </div>
+    <pre className="whitespace-pre-wrap break-words">
+      {JSON.stringify(response, null, 2)}
+    </pre>
   );
 }
 
-function TimingsTab({ timings }: { timings: Record<string, number> }) {
+function TimingsTab({ timings }: { timings: Record<string, number> | undefined }) {
+  if (!timings) {
+    return <div className="text-[var(--muted)]">No timing data available</div>;
+  }
   return (
     <div className="grid grid-cols-2 gap-2">
       {Object.entries(timings).map(([key, value]) => (
@@ -280,11 +263,3 @@ function TimingsTab({ timings }: { timings: Record<string, number> }) {
   );
 }
 
-function MetadataItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      <span className="text-[var(--muted)] min-w-[80px]">{label}</span>
-      <span className="bg-[var(--card)] px-2 py-0.5 rounded">{value}</span>
-    </div>
-  );
-}

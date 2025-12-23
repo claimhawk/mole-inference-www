@@ -9,7 +9,8 @@ export interface InferenceRequest {
   expert?: number;   // Expert label for routing
 }
 
-export interface InferenceResponse {
+// MoE inference response
+export interface MoEResponse {
   output: string;
   adapter: string;
   expert: number | null;
@@ -17,6 +18,24 @@ export interface InferenceResponse {
   timings: Record<string, number>;
   error: string | null;
 }
+
+// OCR response
+export interface OCRResponse {
+  text: string;
+  raw: string;
+  timings: Record<string, number>;
+  error: string | null;
+}
+
+// SAM response
+export interface SAMResponse {
+  masks: string[];  // base64 encoded masks
+  timings: Record<string, number>;
+  error: string | null;
+}
+
+// Union type - just store raw response and display it
+export type InferenceResponse = Record<string, unknown>;
 
 export interface ToolCall {
   name: string;

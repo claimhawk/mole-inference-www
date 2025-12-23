@@ -106,7 +106,8 @@ export async function warmupServer(): Promise<ServerStatus> {
   }
 }
 
-export function parseToolCall(output: string): { action?: string; toolCall?: Record<string, unknown> } | null {
+export function parseToolCall(output: string | undefined | null): { action?: string; toolCall?: Record<string, unknown> } | null {
+  if (!output) return null;
   const match = output.match(/<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/);
   if (!match) return null;
 
