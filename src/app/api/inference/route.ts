@@ -37,6 +37,21 @@ export async function POST(request: NextRequest) {
     });
 
     const data = await response.json();
+
+    // Log SAM responses to see mask structure
+    if (adapter === 'segment') {
+      const masks = data.masks;
+      console.log('[SAM Response]', JSON.stringify({
+        maskCount: masks?.length,
+        maskShape: masks?.[0]?.length ? `${masks[0].length}x${masks[0][0]?.length}` : 'empty',
+        firstMaskSample: masks?.[0]?.[0]?.slice(0, 10), // first 10 values of first row
+        boxes: data.boxes,
+        scores: data.scores,
+        error: data.error,
+        allKeys: Object.keys(data),
+      }, null, 2));
+    }
+
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     return NextResponse.json(

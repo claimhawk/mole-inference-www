@@ -7,6 +7,7 @@ export interface InferenceRequest {
   prompt: string;
   adapter?: string;  // 'ocr' | 'segment' | adapter name
   expert?: number;   // Expert label for routing
+  box?: [number, number, number, number];  // SAM box prompt in RU coords
 }
 
 // MoE inference response
@@ -53,11 +54,13 @@ export const EXPERT_ADAPTERS = [
   { label: 6, name: 'login-window', description: 'Login/auth screens' },
 ] as const;
 
+// 'segment' type kept for future SAM integration (needs fine-tuning)
 export type ModelType = 'auto' | 'ocr' | 'segment' | 'expert';
 
 export const MODEL_TYPES: { value: ModelType; label: string; description: string }[] = [
   { value: 'auto', label: 'Auto', description: 'Router selects expert' },
   { value: 'ocr', label: 'OCR', description: 'Text extraction' },
-  { value: 'segment', label: 'Segment', description: 'SAM3 segmentation' },
+  // SAM disabled until fine-tuned - code preserved in ImageDropzone/InferencePanel
+  // { value: 'segment', label: 'Segment', description: 'SAM3 segmentation' },
   { value: 'expert', label: 'Expert', description: 'Select LoRA adapter' },
 ];
