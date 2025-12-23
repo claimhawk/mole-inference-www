@@ -42,8 +42,14 @@ export function ImageDropzone({ onImageSelect, currentImage, annotations, enable
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [currentDraw, setCurrentDraw] = useState<{ x: number; y: number } | null>(null);
   const [maskImageUrl, setMaskImageUrl] = useState<string | null>(null);
+  const [resizeEdge, setResizeEdge] = useState<'top' | 'right' | 'bottom' | 'left' | 'tl' | 'tr' | 'bl' | 'br' | null>(null);
+  const [hoverEdge, setHoverEdge] = useState<'top' | 'right' | 'bottom' | 'left' | 'tl' | 'tr' | 'bl' | 'br' | null>(null);
+  const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
+
+  // Edge detection threshold in RU coordinates
+  const EDGE_THRESHOLD = 20;
 
   // Convert SAM mask array to canvas image URL
   useEffect(() => {
@@ -90,10 +96,16 @@ export function ImageDropzone({ onImageSelect, currentImage, annotations, enable
     const reader = new FileReader();
     reader.onload = (e) => {
       const result = e.target?.result as string;
+      setImageDimensions(null); // Reset dimensions until new image loads
       onImageSelect(result);
     };
     reader.readAsDataURL(file);
   }, [onImageSelect]);
+
+  const handleImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+  }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -136,33 +148,137 @@ export function ImageDropzone({ onImageSelect, currentImage, annotations, enable
     setIsFullscreen(false);
   }, []);
 
-  // Convert mouse position to RU coordinates (0-1000)
-  const getRelativePosition = useCallback((e: React.MouseEvent): { x: number; y: number } | null => {
+  // Convert mouse position to RU coordinates (0-1000), clamped to image bounds
+  const getRelativePosition = useCallback((e: React.MouseEvent): { x: number; y: number } => {
     const container = imageContainerRef.current;
-    if (!container) return null;
+    if (!container) return { x: 0, y: 0 };
     const rect = container.getBoundingClientRect();
     const x = Math.round(((e.clientX - rect.left) / rect.width) * 1000);
     const y = Math.round(((e.clientY - rect.top) / rect.height) * 1000);
+    // Clamp to image bounds
     return { x: Math.max(0, Math.min(1000, x)), y: Math.max(0, Math.min(1000, y)) };
+  }, []);
+
+  // Detect which edge/corner the mouse is near
+  const detectEdge = useCallback((pos: { x: number; y: number }, bbox: [number, number, number, number]): typeof hoverEdge => {
+    const [x1, y1, x2, y2] = bbox;
+    const nearLeft = Math.abs(pos.x - x1) < EDGE_THRESHOLD;
+    const nearRight = Math.abs(pos.x - x2) < EDGE_THRESHOLD;
+    const nearTop = Math.abs(pos.y - y1) < EDGE_THRESHOLD;
+    const nearBottom = Math.abs(pos.y - y2) < EDGE_THRESHOLD;
+    const inXRange = pos.x >= x1 - EDGE_THRESHOLD && pos.x <= x2 + EDGE_THRESHOLD;
+    const inYRange = pos.y >= y1 - EDGE_THRESHOLD && pos.y <= y2 + EDGE_THRESHOLD;
+
+    // Corners first (higher priority)
+    if (nearTop && nearLeft) return 'tl';
+    if (nearTop && nearRight) return 'tr';
+    if (nearBottom && nearLeft) return 'bl';
+    if (nearBottom && nearRight) return 'br';
+    // Edges
+    if (nearTop && inXRange) return 'top';
+    if (nearBottom && inXRange) return 'bottom';
+    if (nearLeft && inYRange) return 'left';
+    if (nearRight && inYRange) return 'right';
+    return null;
+  }, [EDGE_THRESHOLD]);
+
+  // Get cursor style based on edge
+  const getCursorStyle = useCallback((edge: typeof hoverEdge): string => {
+    switch (edge) {
+      case 'top':
+      case 'bottom':
+        return 'ns-resize';
+      case 'left':
+      case 'right':
+        return 'ew-resize';
+      case 'tl':
+      case 'br':
+        return 'nwse-resize';
+      case 'tr':
+      case 'bl':
+        return 'nesw-resize';
+      default:
+        return 'crosshair';
+    }
   }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (!enableBboxDraw || !currentImage) return;
     const pos = getRelativePosition(e);
-    if (pos) {
-      setIsDrawing(true);
-      setDrawStart(pos);
-      setCurrentDraw(pos);
+
+    // Check if clicking on an edge of existing bbox
+    if (drawnBbox) {
+      const edge = detectEdge(pos, drawnBbox);
+      if (edge) {
+        setResizeEdge(edge);
+        return;
+      }
     }
-  }, [enableBboxDraw, currentImage, getRelativePosition]);
+
+    // Start new draw
+    setIsDrawing(true);
+    setDrawStart(pos);
+    setCurrentDraw(pos);
+  }, [enableBboxDraw, currentImage, getRelativePosition, drawnBbox, detectEdge]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDrawing) return;
     const pos = getRelativePosition(e);
-    if (pos) setCurrentDraw(pos);
-  }, [isDrawing, getRelativePosition]);
+
+    // Handle edge resize
+    if (resizeEdge && drawnBbox) {
+      const [x1, y1, x2, y2] = drawnBbox;
+      let newBbox: [number, number, number, number] = [x1, y1, x2, y2];
+
+      switch (resizeEdge) {
+        case 'left':
+          newBbox = [Math.min(pos.x, x2 - 20), y1, x2, y2];
+          break;
+        case 'right':
+          newBbox = [x1, y1, Math.max(pos.x, x1 + 20), y2];
+          break;
+        case 'top':
+          newBbox = [x1, Math.min(pos.y, y2 - 20), x2, y2];
+          break;
+        case 'bottom':
+          newBbox = [x1, y1, x2, Math.max(pos.y, y1 + 20)];
+          break;
+        case 'tl':
+          newBbox = [Math.min(pos.x, x2 - 20), Math.min(pos.y, y2 - 20), x2, y2];
+          break;
+        case 'tr':
+          newBbox = [x1, Math.min(pos.y, y2 - 20), Math.max(pos.x, x1 + 20), y2];
+          break;
+        case 'bl':
+          newBbox = [Math.min(pos.x, x2 - 20), y1, x2, Math.max(pos.y, y1 + 20)];
+          break;
+        case 'br':
+          newBbox = [x1, y1, Math.max(pos.x, x1 + 20), Math.max(pos.y, y1 + 20)];
+          break;
+      }
+      onBboxChange?.(newBbox);
+      return;
+    }
+
+    // Update hover cursor for existing bbox
+    if (drawnBbox && enableBboxDraw && !isDrawing) {
+      const edge = detectEdge(pos, drawnBbox);
+      setHoverEdge(edge);
+    }
+
+    // Handle drawing
+    if (isDrawing) {
+      setCurrentDraw(pos);
+    }
+  }, [resizeEdge, drawnBbox, onBboxChange, enableBboxDraw, isDrawing, getRelativePosition, detectEdge]);
 
   const handleMouseUp = useCallback(() => {
+    // Finish resize
+    if (resizeEdge) {
+      setResizeEdge(null);
+      return;
+    }
+
+    // Finish drawing
     if (!isDrawing || !drawStart || !currentDraw) {
       setIsDrawing(false);
       return;
@@ -179,7 +295,7 @@ export function ImageDropzone({ onImageSelect, currentImage, annotations, enable
     setIsDrawing(false);
     setDrawStart(null);
     setCurrentDraw(null);
-  }, [isDrawing, drawStart, currentDraw, onBboxChange]);
+  }, [resizeEdge, isDrawing, drawStart, currentDraw, onBboxChange]);
 
   const clearBbox = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -241,11 +357,12 @@ export function ImageDropzone({ onImageSelect, currentImage, annotations, enable
         />
 
         {currentImage ? (
-          <div className="flex justify-center group">
+          <div className="flex flex-col items-center group">
             {/* Inline-block wrapper shrinks to image size for accurate coordinate positioning */}
             <div
               ref={imageContainerRef}
-              className={`relative inline-block ${enableBboxDraw ? 'cursor-crosshair' : ''}`}
+              className="relative inline-block"
+              style={{ cursor: enableBboxDraw ? getCursorStyle(hoverEdge) : 'default' }}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -257,6 +374,7 @@ export function ImageDropzone({ onImageSelect, currentImage, annotations, enable
                 alt="Uploaded"
                 className="max-w-full max-h-[600px] rounded block select-none"
                 draggable={false}
+                onLoad={handleImageLoad}
               />
               {/* Magnify button */}
               <button
@@ -377,6 +495,10 @@ export function ImageDropzone({ onImageSelect, currentImage, annotations, enable
                   );
                 });
               })()}
+            </div>
+            {/* Image dimensions - fixed height to avoid CLS */}
+            <div className="h-5 mt-2 text-xs text-[var(--muted)] font-mono">
+              {imageDimensions ? `${imageDimensions.width} × ${imageDimensions.height} px` : '\u00A0'}
             </div>
           </div>
         ) : (

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import { ImageDropzone } from './ImageDropzone';
 import { ServerStatus } from './ServerStatus';
 import { runInference, parseToolCall } from '@/lib/api';
@@ -19,19 +20,20 @@ export function InferencePanel() {
   const [activeTab, setActiveTab] = useState<Tab>('output');
   const [lastSuccessfulRequest, setLastSuccessfulRequest] = useState<Date | null>(null);
   const [drawnBbox, setDrawnBbox] = useState<[number, number, number, number] | null>(null);
+  const [sentImageDimensions, setSentImageDimensions] = useState<{ width: number; height: number } | null>(null);
 
-  // Crop image to bbox region and return as base64
+  // Crop image to bbox region and return as base64 with dimensions
   const cropImageToBbox = useCallback(async (
     imgB64: string,
     bbox: [number, number, number, number]
-  ): Promise<string> => {
+  ): Promise<{ b64: string; width: number; height: number }> => {
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         if (!ctx) {
-          resolve(imgB64);
+          resolve({ b64: imgB64, width: img.width, height: img.height });
           return;
         }
         // Convert RU coords (0-1000) to pixels
@@ -44,8 +46,17 @@ export function InferencePanel() {
         canvas.width = cropWidth;
         canvas.height = cropHeight;
         ctx.drawImage(img, x1, y1, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-        resolve(canvas.toDataURL('image/png'));
+        resolve({ b64: canvas.toDataURL('image/png'), width: cropWidth, height: cropHeight });
       };
+      img.src = imgB64;
+    });
+  }, []);
+
+  // Get original image dimensions
+  const getImageDimensions = useCallback(async (imgB64: string): Promise<{ width: number; height: number }> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ width: img.width, height: img.height });
       img.src = imgB64;
     });
   }, []);
@@ -55,12 +66,19 @@ export function InferencePanel() {
 
     setIsLoading(true);
     setError(null);
+    setResponse(null);  // Clear previous response
+    setSentImageDimensions(null);
 
     try {
       // Crop image if bbox is drawn (all modes)
       let imageToSend = imageB64;
       if (drawnBbox) {
-        imageToSend = await cropImageToBbox(imageB64, drawnBbox);
+        const cropped = await cropImageToBbox(imageB64, drawnBbox);
+        imageToSend = cropped.b64;
+        setSentImageDimensions({ width: cropped.width, height: cropped.height });
+      } else {
+        const dims = await getImageDimensions(imageB64);
+        setSentImageDimensions(dims);
       }
 
       const payload: Parameters<typeof runInference>[0] = {
@@ -89,7 +107,7 @@ export function InferencePanel() {
     } finally {
       setIsLoading(false);
     }
-  }, [imageB64, prompt, modelType, expertLabel, drawnBbox, cropImageToBbox]);
+  }, [imageB64, prompt, modelType, expertLabel, drawnBbox, cropImageToBbox, getImageDimensions]);
 
   const handleClear = useCallback(() => {
     setImageB64(null);
@@ -108,8 +126,8 @@ export function InferencePanel() {
     }
   }, []);
 
-  // Enable bbox drawing for all modes (auto, expert, ocr, segment)
-  const enableBboxDraw = true;
+  // Enable bbox drawing for all modes, but lock while loading
+  const enableBboxDraw = !isLoading;
 
   // Transform coordinates from cropped region (0-1000) to original image coords
   const transformToOriginal = useCallback((
@@ -198,7 +216,12 @@ export function InferencePanel() {
             <div className="flex gap-4 flex-wrap">
               <select
                 value={modelType}
-                onChange={(e) => setModelType(e.target.value as ModelType)}
+                onChange={(e) => {
+                  setModelType(e.target.value as ModelType);
+                  setDrawnBbox(null);
+                  setResponse(null);
+                  setError(null);
+                }}
                 className="flex-1 min-w-[200px] px-3 py-2 bg-[var(--background)] border border-[var(--card-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--primary)]"
               >
                 {MODEL_TYPES.map((type) => (
@@ -227,10 +250,15 @@ export function InferencePanel() {
           {/* Step 2: Image */}
           <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--card-border)]">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-4">
-              2. Upload Image {enableBboxDraw && <span className="text-blue-400 ml-2">(draw box to crop region)</span>}
+              2. Upload Image {!isLoading && <span className="text-blue-400 ml-2">(draw box to crop region)</span>}{isLoading && <span className="text-yellow-400 ml-2">(locked)</span>}
             </h2>
             <ImageDropzone
-              onImageSelect={setImageB64}
+              onImageSelect={(img) => {
+                setImageB64(img);
+                setDrawnBbox(null);
+                setResponse(null);
+                setError(null);
+              }}
               currentImage={imageB64}
               annotations={annotations}
               enableBboxDraw={enableBboxDraw}
@@ -244,14 +272,15 @@ export function InferencePanel() {
           {/* Step 3: Prompt & Run */}
           <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--card-border)]">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-4">
-              3. Enter Prompt & Run
+              {modelType === 'ocr' ? '3. Run OCR' : '3. Enter Prompt & Run'}
             </h2>
             <div className="flex gap-4 items-center">
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder={modelType === 'segment' ? "Object to segment (e.g. 'calendar', 'button')" : "Describe what action to take..."}
-                className="flex-1 px-3 py-2.5 bg-[var(--background)] border border-[var(--card-border)] rounded-lg text-sm resize-none h-[42px] focus:outline-none focus:border-[var(--primary)]"
+                className={`flex-1 px-3 py-2.5 bg-[var(--background)] border border-[var(--card-border)] rounded-lg text-sm resize-none h-[42px] focus:outline-none focus:border-[var(--primary)] ${modelType === 'ocr' ? 'invisible' : ''}`}
+                tabIndex={modelType === 'ocr' ? -1 : 0}
               />
               <button
                 onClick={handleInference}
@@ -264,7 +293,7 @@ export function InferencePanel() {
                     Running...
                   </>
                 ) : (
-                  'Run'
+                  modelType === 'ocr' ? 'Run OCR' : 'Run'
                 )}
               </button>
               <button
@@ -276,12 +305,41 @@ export function InferencePanel() {
             </div>
           </div>
 
+          {/* OCR Text Preview - rendered content above raw JSON */}
+          {(() => {
+            const ocrText = response ? String(response.text || response.raw || '') : '';
+            if (!ocrText || error) return null;
+
+            // Detect if content has HTML tags
+            const hasHtmlTags = /<[a-z][\s\S]*>/i.test(ocrText);
+
+            return (
+              <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--card-border)]">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-4">
+                  OCR Output {hasHtmlTags && <span className="text-blue-400 ml-2">(HTML)</span>}
+                </h2>
+                <div className="bg-[var(--background)] rounded-lg p-4 max-h-[300px] overflow-auto">
+                  {hasHtmlTags ? (
+                    <div
+                      className="prose prose-invert prose-sm max-w-none [&_table]:border-collapse [&_td]:border [&_td]:border-[var(--card-border)] [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-[var(--card-border)] [&_th]:px-2 [&_th]:py-1"
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(ocrText) }}
+                    />
+                  ) : (
+                    <pre className="whitespace-pre-wrap break-words text-sm font-mono">
+                      {ocrText}
+                    </pre>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Results */}
           {(response || error) && (
             <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--card-border)]">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
-                  Results
+                  Raw Response
                 </h2>
                 <div className="flex gap-2">
                   {(['output', 'timings', 'raw'] as Tab[]).map((tab) => (
@@ -308,7 +366,7 @@ export function InferencePanel() {
                 )}
 
                 {response && !error && activeTab === 'output' && (
-                  <OutputTab response={response} />
+                  <OutputTab response={response} sentDimensions={sentImageDimensions} />
                 )}
 
                 {response && !error && activeTab === 'timings' && (
@@ -329,12 +387,92 @@ export function InferencePanel() {
   );
 }
 
-function OutputTab({ response }: { response: InferenceResponse }) {
-  // Just dump the whole response - no fancy parsing
+function OutputTab({ response, sentDimensions }: { response: InferenceResponse; sentDimensions: { width: number; height: number } | null }) {
+  const output = response.output as string | undefined;
+  const parsed = output ? parseToolCall(output) : null;
+  const args = parsed?.toolCall as Record<string, unknown> | undefined;
+
+  // Expert routing info
+  const adapter = response.adapter as string | undefined;
+  const expert = response.expert as number | undefined;
+  const routed = response.routed as boolean | undefined;
+
   return (
-    <pre className="whitespace-pre-wrap break-words">
-      {JSON.stringify(response, null, 2)}
-    </pre>
+    <div className="space-y-4">
+      {/* Sent Image Dimensions */}
+      {sentDimensions && (
+        <div className="bg-[var(--card)] rounded-lg p-3">
+          <div className="text-xs text-[var(--muted)] uppercase tracking-wider mb-2">Sent Image</div>
+          <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded text-sm font-mono">
+            {sentDimensions.width} × {sentDimensions.height} px
+          </span>
+        </div>
+      )}
+
+      {/* Routing Info */}
+      {(adapter || expert !== undefined) && (
+        <div className="bg-[var(--card)] rounded-lg p-3">
+          <div className="text-xs text-[var(--muted)] uppercase tracking-wider mb-2">Routing</div>
+          <div className="flex flex-wrap gap-3">
+            {expert !== undefined && (
+              <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-sm font-mono">
+                Expert {expert}
+              </span>
+            )}
+            {adapter && (
+              <span className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-sm font-mono">
+                {adapter}
+              </span>
+            )}
+            {routed && (
+              <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-sm">
+                via Router
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tool Call */}
+      {args && (
+        <div className="bg-[var(--card)] rounded-lg p-3">
+          <div className="text-xs text-[var(--muted)] uppercase tracking-wider mb-2">Tool Call</div>
+          <div className="space-y-2">
+            {args.action && (
+              <div className="flex items-center gap-2">
+                <span className="text-[var(--muted)]">Action:</span>
+                <span className="font-mono text-yellow-400">{String(args.action)}</span>
+              </div>
+            )}
+            {args.coordinate && (
+              <div className="flex items-center gap-2">
+                <span className="text-[var(--muted)]">Coordinate:</span>
+                <span className="font-mono text-cyan-400">[{(args.coordinate as number[]).join(', ')}]</span>
+              </div>
+            )}
+            {args.annotation && (
+              <div className="flex items-center gap-2">
+                <span className="text-[var(--muted)]">Annotation:</span>
+                <span className="text-green-400">{String(args.annotation)}</span>
+              </div>
+            )}
+            {args.text && (
+              <div className="flex items-center gap-2">
+                <span className="text-[var(--muted)]">Text:</span>
+                <span className="text-orange-400">&quot;{String(args.text)}&quot;</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Raw JSON fallback */}
+      {!args && (
+        <pre className="whitespace-pre-wrap break-words">
+          {JSON.stringify(response, null, 2)}
+        </pre>
+      )}
+    </div>
   );
 }
 
