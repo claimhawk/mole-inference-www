@@ -275,13 +275,15 @@ export function InferencePanel() {
               {modelType === 'ocr' ? '3. Run OCR' : '3. Enter Prompt & Run'}
             </h2>
             <div className="flex gap-4 items-center">
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder={modelType === 'segment' ? "Object to segment (e.g. 'calendar', 'button')" : "Describe what action to take..."}
-                className={`flex-1 px-3 py-2.5 bg-[var(--background)] border border-[var(--card-border)] rounded-lg text-sm resize-none h-[42px] focus:outline-none focus:border-[var(--primary)] ${modelType === 'ocr' ? 'invisible' : ''}`}
-                tabIndex={modelType === 'ocr' ? -1 : 0}
-              />
+              <div className="flex-1">
+                <textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder={modelType === 'segment' ? "Object to segment (e.g. 'calendar', 'button')" : "Describe what action to take..."}
+                  className={`w-full px-3 py-2.5 bg-[var(--background)] border border-[var(--card-border)] rounded-lg text-sm resize-none h-[42px] focus:outline-none focus:border-[var(--primary)] ${modelType === 'ocr' ? 'opacity-0 pointer-events-none' : ''}`}
+                  tabIndex={modelType === 'ocr' ? -1 : 0}
+                />
+              </div>
               <button
                 onClick={handleInference}
                 disabled={!imageB64 || isLoading}
