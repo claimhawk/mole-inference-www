@@ -94,6 +94,45 @@ export function InferencePanel() {
               Input
             </h2>
 
+            {/* Model Type - moved above image */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-[var(--muted)] mb-2">
+                Model Type
+              </label>
+              <select
+                value={modelType}
+                onChange={(e) => setModelType(e.target.value as ModelType)}
+                className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--card-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--primary)]"
+              >
+                {MODEL_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label} ({type.description})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Expert Adapter (conditional) */}
+            {modelType === 'expert' && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-[var(--muted)] mb-2">
+                  Expert Adapter
+                </label>
+                <select
+                  value={expertLabel}
+                  onChange={(e) => setExpertLabel(e.target.value === '' ? '' : parseInt(e.target.value))}
+                  className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--card-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--primary)]"
+                >
+                  <option value="">Select adapter...</option>
+                  {EXPERT_ADAPTERS.map((adapter) => (
+                    <option key={adapter.label} value={adapter.label}>
+                      {adapter.label}: {adapter.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <ImageDropzone
               onImageSelect={setImageB64}
               currentImage={imageB64}
@@ -113,45 +152,6 @@ export function InferencePanel() {
                   className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--card-border)] rounded-lg text-sm resize-y min-h-[100px] focus:outline-none focus:border-[var(--primary)]"
                 />
               </div>
-
-              {/* Model Type */}
-              <div>
-                <label className="block text-sm font-medium text-[var(--muted)] mb-2">
-                  Model Type
-                </label>
-                <select
-                  value={modelType}
-                  onChange={(e) => setModelType(e.target.value as ModelType)}
-                  className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--card-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--primary)]"
-                >
-                  {MODEL_TYPES.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label} ({type.description})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Expert Adapter (conditional) */}
-              {modelType === 'expert' && (
-                <div>
-                  <label className="block text-sm font-medium text-[var(--muted)] mb-2">
-                    Expert Adapter
-                  </label>
-                  <select
-                    value={expertLabel}
-                    onChange={(e) => setExpertLabel(e.target.value === '' ? '' : parseInt(e.target.value))}
-                    className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--card-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--primary)]"
-                  >
-                    <option value="">Select adapter...</option>
-                    {EXPERT_ADAPTERS.map((adapter) => (
-                      <option key={adapter.label} value={adapter.label}>
-                        {adapter.label}: {adapter.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
               {/* Actions */}
               <div className="flex gap-3 pt-2">
