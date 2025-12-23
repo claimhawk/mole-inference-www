@@ -6,8 +6,8 @@ import { getExperts, getScreensForExpert, getElementsForScreen, getElement, getS
 interface Props {
   /** Currently active bbox index */
   activeBboxIndex: number;
-  /** Callback when element is selected - sets bbox for the active region */
-  onElementSelect: (bbox: [number, number, number, number] | null, imageSize: [number, number] | null) => void;
+  /** Callback when grounding is selected - sets bbox for the active region. autoAdvance=true means advance to next region after setting */
+  onElementSelect: (bbox: [number, number, number, number] | null, autoAdvance: boolean) => void;
 }
 
 export function GroundingToolbar({ activeBboxIndex, onElementSelect }: Props) {
@@ -31,22 +31,22 @@ export function GroundingToolbar({ activeBboxIndex, onElementSelect }: Props) {
     setSelectedExpert(value);
     setSelectedScreen('');
     setSelectedElement('');
-    onElementSelect(null, null);
+    onElementSelect(null, false);
   }, [onElementSelect]);
 
   const handleScreenChange = useCallback((value: string) => {
     setSelectedScreen(value);
     setSelectedElement('');
 
-    // When screen is selected, draw the screen-level bbox
+    // When screen is selected, draw the screen-level bbox and auto-advance for next element
     if (value && selectedExpert) {
       const screenBbox = getScreenBbox(selectedExpert, value);
       if (screenBbox) {
-        onElementSelect(screenBbox, null);
+        onElementSelect(screenBbox, true); // auto-advance after setting screen bbox
         return;
       }
     }
-    onElementSelect(null, null);
+    onElementSelect(null, false);
   }, [selectedExpert, onElementSelect]);
 
   const handleElementChange = useCallback((value: string) => {
@@ -61,7 +61,7 @@ export function GroundingToolbar({ activeBboxIndex, onElementSelect }: Props) {
     if (result) {
       // Convert desktop pixel bbox to RU coords
       const elementRU = pixelBboxToRU(result.element.bbox);
-      onElementSelect(elementRU, null);
+      onElementSelect(elementRU, true); // auto-advance for next element
     }
   }, [selectedExpert, selectedScreen, onElementSelect]);
 
@@ -69,7 +69,7 @@ export function GroundingToolbar({ activeBboxIndex, onElementSelect }: Props) {
     setSelectedExpert('');
     setSelectedScreen('');
     setSelectedElement('');
-    onElementSelect(null, null);
+    onElementSelect(null, false);
   }, [onElementSelect]);
 
   return (

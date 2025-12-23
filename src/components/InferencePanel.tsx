@@ -167,23 +167,42 @@ export function InferencePanel() {
     }
   }, [activeBboxIndex]);
 
-  // Handle grounding selection - sets bbox on current active region (toggle behavior)
-  const handleGroundingSelect = useCallback((bbox: [number, number, number, number] | null) => {
+  // Handle grounding selection - sets bbox on current active region, optionally advances to next
+  const handleGroundingSelect = useCallback((bbox: [number, number, number, number] | null, autoAdvance: boolean) => {
     if (!bbox) return;
 
     // Set bbox on current active region
     setDrawnBboxes(prev => {
       const newBboxes = [...prev];
       newBboxes[activeBboxIndex] = bbox;
+      // Expand array if needed for next region (when auto-advancing)
+      if (autoAdvance && activeBboxIndex + 1 >= newBboxes.length && newBboxes.length < MAX_REGIONS) {
+        newBboxes.push(null);
+      }
       return newBboxes;
     });
 
-    // Clear response for this region
+    // Expand responses/dimensions arrays if needed
     setResponses(prev => {
       const newResponses = [...prev];
       newResponses[activeBboxIndex] = null;
+      if (autoAdvance && activeBboxIndex + 1 >= newResponses.length && newResponses.length < MAX_REGIONS) {
+        newResponses.push(null);
+      }
       return newResponses;
     });
+    setSentImageDimensions(prev => {
+      const newDims = [...prev];
+      if (autoAdvance && activeBboxIndex + 1 >= newDims.length && newDims.length < MAX_REGIONS) {
+        newDims.push(null);
+      }
+      return newDims;
+    });
+
+    // Auto-advance to next region if requested
+    if (autoAdvance && activeBboxIndex + 1 < MAX_REGIONS) {
+      setActiveBboxIndex(activeBboxIndex + 1);
+    }
     setError(null);
   }, [activeBboxIndex]);
 
