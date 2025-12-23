@@ -441,6 +441,11 @@ function OutputTab({ response, sentDimensions }: { response: InferenceResponse; 
         const coordinate = args.coordinate as number[] | undefined;
         const annotation = args.annotation as string | undefined;
         const text = args.text as string | undefined;
+        // Scroll-specific args
+        const direction = args.direction as string | undefined;
+        const pixels = args.pixels as number | undefined;
+        const amount = args.amount as number | undefined;
+        const scrollAmount = args.scroll_amount as number | undefined;
         return (
           <div className="bg-[var(--card)] rounded-lg p-3">
             <div className="text-xs text-[var(--muted)] uppercase tracking-wider mb-2">Tool Call</div>
@@ -457,16 +462,28 @@ function OutputTab({ response, sentDimensions }: { response: InferenceResponse; 
                   <span className="font-mono text-cyan-400">[{coordinate.join(', ')}]</span>
                 </div>
               )}
-              {annotation && (
+              {direction && (
                 <div className="flex items-center gap-2">
-                  <span className="text-[var(--muted)]">Annotation:</span>
-                  <span className="text-green-400">{annotation}</span>
+                  <span className="text-[var(--muted)]">Direction:</span>
+                  <span className="font-mono text-pink-400">{direction}</span>
+                </div>
+              )}
+              {(pixels ?? amount ?? scrollAmount) !== undefined && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[var(--muted)]">Pixels:</span>
+                  <span className="font-mono text-pink-400">{pixels ?? amount ?? scrollAmount}</span>
                 </div>
               )}
               {text && (
                 <div className="flex items-center gap-2">
                   <span className="text-[var(--muted)]">Text:</span>
                   <span className="text-orange-400">&quot;{text}&quot;</span>
+                </div>
+              )}
+              {annotation && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[var(--muted)]">Annotation:</span>
+                  <span className="text-green-400">{annotation}</span>
                 </div>
               )}
             </div>
