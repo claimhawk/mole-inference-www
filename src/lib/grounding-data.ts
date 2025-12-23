@@ -1,13 +1,29 @@
 /**
- * Grounding data from generators.
- * Source: projects/sl/generators/{generator}/config/annotation.json
+ * Grounding data from annotator project.
+ * Source: projects/sl/annotator/groundings/{screen}/annotation.json
+ *
+ * All bboxes are stored in PIXEL coordinates on a 1920x1080 desktop.
+ * Use pixelBboxToRU() to convert to RU coords (0-1000).
  */
 
 import type { GroundingData, GroundingElement, ScreenAnnotation, ExpertAdapter } from './grounding-types';
 
+/** Desktop size used for all groundings */
+const DESKTOP_WIDTH = 1920;
+const DESKTOP_HEIGHT = 1080;
+
+/** Convert pixel bbox {x, y, width, height} to RU coords [x1, y1, x2, y2] */
+export function pixelBboxToRU(bbox: { x: number; y: number; width: number; height: number }): [number, number, number, number] {
+  const x1 = Math.round((bbox.x / DESKTOP_WIDTH) * 1000);
+  const y1 = Math.round((bbox.y / DESKTOP_HEIGHT) * 1000);
+  const x2 = Math.round(((bbox.x + bbox.width) / DESKTOP_WIDTH) * 1000);
+  const y2 = Math.round(((bbox.y + bbox.height) / DESKTOP_HEIGHT) * 1000);
+  return [x1, y1, x2, y2];
+}
+
 /**
- * Static grounding data extracted from generator annotations.
- * This is loaded at build time - no API needed.
+ * Static grounding data extracted from annotator groundings.
+ * Bboxes are in PIXEL coords on full 1920x1080 desktop.
  */
 export const GROUNDING_DATA: GroundingData = {
   experts: [
@@ -18,27 +34,16 @@ export const GROUNDING_DATA: GroundingData = {
       screens: [
         {
           screenName: 'account-screen',
-          imageSize: [940, 931],
-          // Screen bbox on full desktop (1920x1080) in RU coords
-          screenBboxRU: [0, 44, 515, 953],
+          imageSize: [1920, 1080],
+          // Screen bbox in pixel coords (left side of screen, below toolbar)
+          screenBboxRU: pixelBboxToRU({ x: 0, y: 48, width: 990, height: 980 }),
           elements: [
             {
-              id: 'el_1765893610900',
-              label: 'communications-log',
+              id: 'el_account_section_nav',
+              label: 'section-nav',
               type: 'grid',
-              bbox: { x: 5, y: 342, width: 747, height: 587 },
-            },
-            {
-              id: 'el_1765893732514',
-              label: 'patient-account',
-              type: 'grid',
-              bbox: { x: 6, y: 77, width: 744, height: 240 },
-            },
-            {
-              id: 'el_1765893821631',
-              label: 'select-patient',
-              type: 'grid',
-              bbox: { x: 756, y: 203, width: 177, height: 162 },
+              // Section nav on left side (from annotator)
+              bbox: { x: 0, y: 48, width: 49, height: 408 },
             },
           ],
         },
@@ -51,14 +56,14 @@ export const GROUNDING_DATA: GroundingData = {
       screens: [
         {
           screenName: 'appointment',
-          imageSize: [2768, 1572],
+          imageSize: [1920, 1080],
           screenBboxRU: [1, 46, 1000, 956],
           elements: [
             {
               id: 'el_appointment_grid',
               label: 'appointment-grid',
               type: 'grid',
-              bbox: { x: 0, y: 0, width: 2768, height: 1572 },
+              bbox: { x: 2, y: 50, width: 1916, height: 982 },
             },
           ],
         },
@@ -71,81 +76,15 @@ export const GROUNDING_DATA: GroundingData = {
       screens: [
         {
           screenName: 'calendar',
-          imageSize: [380, 352],
-          // Calendar is a small popup - approximate position
-          screenBboxRU: [300, 300, 500, 630],
+          imageSize: [1920, 1080],
+          // Calendar popup - approximate centered position
+          screenBboxRU: pixelBboxToRU({ x: 576, y: 324, width: 380, height: 352 }),
           elements: [
             {
-              id: 'el_1765038341364',
+              id: 'el_calendar_grid',
               label: 'calendar',
               type: 'grid',
-              bbox: { x: 1, y: 122, width: 379, height: 152 },
-            },
-            {
-              id: 'el_1765038596465',
-              label: 'top-back-year',
-              type: 'button',
-              bbox: { x: 3, y: 56, width: 34, height: 25 },
-            },
-            {
-              id: 'el_1765038619294',
-              label: 'top-back-month',
-              type: 'button',
-              bbox: { x: 47, y: 57, width: 37, height: 23 },
-            },
-            {
-              id: 'el_1765038635498',
-              label: 'top-forward-month',
-              type: 'button',
-              bbox: { x: 299, y: 55, width: 37, height: 25 },
-            },
-            {
-              id: 'el_1765038653081',
-              label: 'top-forward-year',
-              type: 'button',
-              bbox: { x: 345, y: 57, width: 35, height: 23 },
-            },
-            {
-              id: 'el_1765038665876',
-              label: 'bottom-back-month',
-              type: 'button',
-              bbox: { x: 3, y: 315, width: 29, height: 34 },
-            },
-            {
-              id: 'el_1765038685353',
-              label: 'bottom-back-week',
-              type: 'button',
-              bbox: { x: 35, y: 314, width: 30, height: 34 },
-            },
-            {
-              id: 'el_1765038694763',
-              label: 'bottom-back-day',
-              type: 'button',
-              bbox: { x: 68, y: 314, width: 29, height: 34 },
-            },
-            {
-              id: 'el_1765038704494',
-              label: 'bottom-today',
-              type: 'button',
-              bbox: { x: 100, y: 314, width: 71, height: 35 },
-            },
-            {
-              id: 'el_1765038715158',
-              label: 'bottom-forward-day',
-              type: 'button',
-              bbox: { x: 174, y: 314, width: 28, height: 34 },
-            },
-            {
-              id: 'el_1765038726990',
-              label: 'bottom-forward-week',
-              type: 'button',
-              bbox: { x: 204, y: 315, width: 31, height: 33 },
-            },
-            {
-              id: 'el_1765038740123',
-              label: 'bottom-forward-month',
-              type: 'button',
-              bbox: { x: 238, y: 315, width: 29, height: 33 },
+              bbox: { x: 577, y: 446, width: 379, height: 152 },
             },
           ],
         },
@@ -158,7 +97,7 @@ export const GROUNDING_DATA: GroundingData = {
       screens: [
         {
           screenName: 'chart',
-          imageSize: [1152, 964],
+          imageSize: [1920, 1080],
           screenBboxRU: [1, 44, 601, 937],
           elements: [],
         },
@@ -171,32 +110,37 @@ export const GROUNDING_DATA: GroundingData = {
       screens: [
         {
           screenName: 'edit-claim',
-          imageSize: [1160, 865],
-          screenBboxRU: [198, 75, 802, 876],
+          imageSize: [1920, 1080],
+          // From annotator: { x: 382, y: 81, width: 1158, height: 866 }
+          screenBboxRU: pixelBboxToRU({ x: 382, y: 81, width: 1158, height: 866 }),
           elements: [
             {
-              id: 'el_1765048100029',
+              id: 'el_procedures_grid',
               label: 'procedures-grid',
               type: 'grid',
-              bbox: { x: 2, y: 205, width: 1145, height: 181 },
+              // From annotator: { x: 383, y: 265, width: 1154, height: 200 }
+              bbox: { x: 383, y: 265, width: 1154, height: 200 },
             },
             {
-              id: 'el_1765116857913',
-              label: 'claim-form',
-              type: 'dropdown',
-              bbox: { x: 350, y: 80, width: 126, height: 20 },
-            },
-            {
-              id: 'el_1765116950571',
+              id: 'el_billing_provider',
               label: 'billing-provider',
               type: 'dropdown',
-              bbox: { x: 351, y: 102, width: 148, height: 19 },
+              // From annotator: { x: 735, y: 182, width: 145, height: 19 }
+              bbox: { x: 735, y: 182, width: 145, height: 19 },
             },
             {
-              id: 'el_1765116975599',
+              id: 'el_treating_provider',
               label: 'treating-provider',
               type: 'dropdown',
-              bbox: { x: 352, y: 123, width: 148, height: 19 },
+              // From annotator: { x: 734, y: 201, width: 149, height: 21 }
+              bbox: { x: 734, y: 201, width: 149, height: 21 },
+            },
+            {
+              id: 'el_send_button',
+              label: 'send-button',
+              type: 'button',
+              // From annotator: { x: 887, y: 915, width: 84, height: 21 }
+              bbox: { x: 887, y: 915, width: 84, height: 21 },
             },
           ],
         },
@@ -210,7 +154,6 @@ export const GROUNDING_DATA: GroundingData = {
         {
           screenName: 'desktop',
           imageSize: [1920, 1080],
-          // Full screen
           screenBboxRU: [0, 0, 1000, 1000],
           elements: [],
         },
@@ -223,32 +166,33 @@ export const GROUNDING_DATA: GroundingData = {
       screens: [
         {
           screenName: 'login-window',
-          imageSize: [502, 369],
-          screenBboxRU: [361, 291, 639, 657],
+          imageSize: [1920, 1080],
+          // Login window centered on desktop
+          screenBboxRU: pixelBboxToRU({ x: 693, y: 314, width: 502, height: 369 }),
           elements: [
             {
-              id: 'el_1764278532765',
+              id: 'el_login_user',
               label: 'user',
               type: 'dropdown',
-              bbox: { x: 70, y: 62, width: 120, height: 291 },
+              bbox: { x: 763, y: 376, width: 120, height: 291 },
             },
             {
-              id: 'el_1764278671022',
+              id: 'el_login_password',
               label: 'password',
               type: 'textinput',
-              bbox: { x: 273, y: 61, width: 199, height: 16 },
+              bbox: { x: 966, y: 375, width: 199, height: 16 },
             },
             {
-              id: 'el_1764278692000',
+              id: 'el_login_ok',
               label: 'ok',
               type: 'button',
-              bbox: { x: 419, y: 297, width: 66, height: 21 },
+              bbox: { x: 1112, y: 611, width: 66, height: 21 },
             },
             {
-              id: 'el_1764278702048',
+              id: 'el_login_exit',
               label: 'exit',
               type: 'button',
-              bbox: { x: 416, y: 332, width: 72, height: 26 },
+              bbox: { x: 1109, y: 646, width: 72, height: 26 },
             },
           ],
         },
