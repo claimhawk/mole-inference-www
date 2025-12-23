@@ -1,7 +1,12 @@
 import type { InferenceRequest, InferenceResponse, ServerStatus } from './types';
 
-const API_BASE = process.env.NEXT_PUBLIC_INFERENCE_API;
-if (!API_BASE) throw new Error("NEXT_PUBLIC_INFERENCE_API environment variable required");
+function getApiBase(): string {
+  const base = process.env.NEXT_PUBLIC_INFERENCE_API;
+  if (!base) throw new Error('NEXT_PUBLIC_INFERENCE_API environment variable required');
+  return base;
+}
+
+const API_BASE = getApiBase();
 
 export async function runInference(request: InferenceRequest): Promise<InferenceResponse> {
   const response = await fetch(API_BASE, {
