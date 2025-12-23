@@ -20,11 +20,12 @@ export function InferencePanel() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('output');
   const [lastSuccessfulRequest, setLastSuccessfulRequest] = useState<Date | null>(null);
-  // Multi-bbox support (up to 3)
+  // Multi-bbox support (dynamic, starts with 3)
   const [drawnBboxes, setDrawnBboxes] = useState<([number, number, number, number] | null)[]>([null, null, null]);
-  const [activeBboxIndex, setActiveBboxIndex] = useState<0 | 1 | 2>(0);
+  const [activeBboxIndex, setActiveBboxIndex] = useState<number>(0);
   const [responses, setResponses] = useState<(InferenceResponse | null)[]>([null, null, null]);
   const [sentImageDimensions, setSentImageDimensions] = useState<({ width: number; height: number } | null)[]>([null, null, null]);
+  const MAX_REGIONS = 8;
   const [sentPrompt, setSentPrompt] = useState<string | null>(null);
 
   // Crop image to bbox region and return as base64 with dimensions
@@ -166,8 +167,37 @@ export function InferencePanel() {
     }
   }, [activeBboxIndex]);
 
+  // Handle grounding selection - sets bbox on current active region (toggle behavior)
+  const handleGroundingSelect = useCallback((bbox: [number, number, number, number] | null) => {
+    if (!bbox) return;
+
+    // Set bbox on current active region
+    setDrawnBboxes(prev => {
+      const newBboxes = [...prev];
+      newBboxes[activeBboxIndex] = bbox;
+      return newBboxes;
+    });
+
+    // Clear response for this region
+    setResponses(prev => {
+      const newResponses = [...prev];
+      newResponses[activeBboxIndex] = null;
+      return newResponses;
+    });
+    setError(null);
+  }, [activeBboxIndex]);
+
+  // Add a new region slot
+  const handleAddRegion = useCallback(() => {
+    if (drawnBboxes.length >= MAX_REGIONS) return;
+    setDrawnBboxes(prev => [...prev, null]);
+    setResponses(prev => [...prev, null]);
+    setSentImageDimensions(prev => [...prev, null]);
+    setActiveBboxIndex(drawnBboxes.length); // Switch to the new region
+  }, [drawnBboxes.length]);
+
   // Clear a specific bbox
-  const handleClearBbox = useCallback((idx: 0 | 1 | 2) => {
+  const handleClearBbox = useCallback((idx: number) => {
     setDrawnBboxes(prev => {
       const newBboxes = [...prev] as ([number, number, number, number] | null)[];
       newBboxes[idx] = null;
@@ -311,38 +341,37 @@ export function InferencePanel() {
               <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
                 2. Upload Image {!isLoading && <span className="text-blue-400 ml-2">(draw box to crop region)</span>}{isLoading && <span className="text-yellow-400 ml-2">(locked)</span>}
               </h2>
-              {/* Bbox selector */}
+              {/* Bbox selector - dynamic based on drawnBboxes length */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-[var(--muted)]">Region:</span>
-                <button
-                  onClick={() => setActiveBboxIndex(0)}
-                  className={`px-2 py-1 text-xs rounded transition-colors ${activeBboxIndex === 0 ? 'bg-blue-500 text-white' : 'bg-[var(--card-border)] text-[var(--muted)] hover:text-white'}`}
-                >
-                  1 {drawnBboxes[0] ? '●' : '○'}
-                </button>
-                <button
-                  onClick={() => setActiveBboxIndex(1)}
-                  className={`px-2 py-1 text-xs rounded transition-colors ${activeBboxIndex === 1 ? 'bg-green-500 text-white' : 'bg-[var(--card-border)] text-[var(--muted)] hover:text-white'}`}
-                >
-                  2 {drawnBboxes[1] ? '●' : '○'}
-                </button>
-                <button
-                  onClick={() => setActiveBboxIndex(2)}
-                  className={`px-2 py-1 text-xs rounded transition-colors ${activeBboxIndex === 2 ? 'bg-orange-500 text-white' : 'bg-[var(--card-border)] text-[var(--muted)] hover:text-white'}`}
-                >
-                  3 {drawnBboxes[2] ? '●' : '○'}
-                </button>
+                {drawnBboxes.map((bbox, idx) => {
+                  const colors = ['bg-blue-500', 'bg-green-500', 'bg-orange-500', 'bg-purple-500', 'bg-pink-500', 'bg-cyan-500', 'bg-yellow-500', 'bg-red-500'];
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveBboxIndex(idx)}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${activeBboxIndex === idx ? `${colors[idx % colors.length]} text-white` : 'bg-[var(--card-border)] text-[var(--muted)] hover:text-white'}`}
+                    >
+                      {bbox ? `${idx + 1}●` : idx + 1}
+                    </button>
+                  );
+                })}
+                {drawnBboxes.length < MAX_REGIONS && (
+                  <button
+                    onClick={handleAddRegion}
+                    className="px-2 py-1 text-xs rounded bg-[var(--card-border)] text-[var(--muted)] hover:text-white transition-colors"
+                    title="Add region"
+                  >
+                    +
+                  </button>
+                )}
               </div>
             </div>
             {/* Grounding Toolbar */}
             <div className="mb-4">
               <GroundingToolbar
                 activeBboxIndex={activeBboxIndex}
-                onElementSelect={(bbox) => {
-                  if (bbox) {
-                    handleBboxChange(bbox);
-                  }
-                }}
+                onElementSelect={handleGroundingSelect}
               />
             </div>
             <ImageDropzone

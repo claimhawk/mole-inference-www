@@ -4,8 +4,8 @@ import { useState, useCallback, useMemo } from 'react';
 import { getExperts, getScreensForExpert, getElementsForScreen, getElement, getScreenBbox, pixelBboxToRU } from '@/lib/grounding-data';
 
 interface Props {
-  /** Currently active bbox index (0, 1, or 2) */
-  activeBboxIndex: 0 | 1 | 2;
+  /** Currently active bbox index */
+  activeBboxIndex: number;
   /** Callback when element is selected - sets bbox for the active region */
   onElementSelect: (bbox: [number, number, number, number] | null, imageSize: [number, number] | null) => void;
 }
@@ -130,11 +130,14 @@ export function GroundingToolbar({ activeBboxIndex, onElementSelect }: Props) {
       )}
 
       {/* Selected element info */}
-      {selectedElement && (
-        <span className={`text-xs ml-2 ${activeBboxIndex === 0 ? 'text-blue-400' : activeBboxIndex === 1 ? 'text-green-400' : 'text-orange-400'}`}>
-          Region {activeBboxIndex + 1}: {selectedElement}
-        </span>
-      )}
+      {selectedElement && (() => {
+        const colors = ['text-blue-400', 'text-green-400', 'text-orange-400', 'text-purple-400', 'text-pink-400', 'text-cyan-400', 'text-yellow-400', 'text-red-400'];
+        return (
+          <span className={`text-xs ml-2 ${colors[activeBboxIndex % colors.length]}`}>
+            Region {activeBboxIndex + 1}: {selectedElement}
+          </span>
+        );
+      })()}
     </div>
   );
 }
