@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo } from 'react';
 import DOMPurify from 'dompurify';
 import { ImageDropzone } from './ImageDropzone';
 import { ServerStatus } from './ServerStatus';
+import { GroundingToolbar } from './GroundingToolbar';
 import { runInference, parseToolCall } from '@/lib/api';
 import { MODEL_TYPES, EXPERT_ADAPTERS, type ModelType, type InferenceResponse } from '@/lib/types';
 
@@ -332,6 +333,17 @@ export function InferencePanel() {
                   3 {drawnBboxes[2] ? '●' : '○'}
                 </button>
               </div>
+            </div>
+            {/* Grounding Toolbar */}
+            <div className="mb-4">
+              <GroundingToolbar
+                activeBboxIndex={activeBboxIndex}
+                onElementSelect={(bbox) => {
+                  if (bbox) {
+                    handleBboxChange(bbox);
+                  }
+                }}
+              />
             </div>
             <ImageDropzone
               onImageSelect={(img) => {
