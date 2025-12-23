@@ -1,35 +1,17 @@
 import type { InferenceRequest, InferenceResponse, ServerStatus } from './types';
 
-function getRequiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} environment variable required`);
-  return value;
-}
+// Use local API proxy to avoid CORS issues with Modal
+const API_PROXY = '/api/inference';
 
-// Endpoint URLs for different services
-const ENDPOINTS = {
-  moe: () => getRequiredEnv('NEXT_PUBLIC_INFERENCE_API'),
-  ocr: () => process.env.NEXT_PUBLIC_OCR_API,
-  sam: () => process.env.NEXT_PUBLIC_SAM_API,
-};
-
-function getEndpointForRequest(request: InferenceRequest): string {
-  if (request.adapter === 'ocr') {
-    const url = ENDPOINTS.ocr();
-    if (!url) throw new Error('NEXT_PUBLIC_OCR_API not configured');
-    return url;
-  }
-  if (request.adapter === 'segment') {
-    const url = ENDPOINTS.sam();
-    if (!url) throw new Error('NEXT_PUBLIC_SAM_API not configured');
-    return url;
-  }
-  return ENDPOINTS.moe();
+// Direct Modal endpoint for health checks
+function getMoeEndpoint(): string {
+  const url = process.env.NEXT_PUBLIC_INFERENCE_API;
+  if (!url) throw new Error('NEXT_PUBLIC_INFERENCE_API environment variable required');
+  return url;
 }
 
 export async function runInference(request: InferenceRequest): Promise<InferenceResponse> {
-  const endpoint = getEndpointForRequest(request);
-  const response = await fetch(endpoint, {
+  const response = await fetch(API_PROXY, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
@@ -48,7 +30,7 @@ export async function checkServerStatus(): Promise<ServerStatus> {
 
   try {
     const start = Date.now();
-    const response = await fetch(ENDPOINTS.moe(), {
+    const response = await fetch(getMoeEndpoint(), {
       method: 'OPTIONS',
       signal: controller.signal,
     });
@@ -83,7 +65,7 @@ export async function warmupServer(): Promise<ServerStatus> {
 
   try {
     const start = Date.now();
-    const response = await fetch(`${ENDPOINTS.moe()}/health`, {
+    const response = await fetch(`${getMoeEndpoint()}/health`, {
       method: 'GET',
       signal: controller.signal,
     });
