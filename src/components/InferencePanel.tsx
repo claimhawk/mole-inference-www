@@ -24,6 +24,7 @@ export function InferencePanel() {
   const [activeBboxIndex, setActiveBboxIndex] = useState<0 | 1>(0);
   const [responses, setResponses] = useState<(InferenceResponse | null)[]>([null, null]);
   const [sentImageDimensions, setSentImageDimensions] = useState<({ width: number; height: number } | null)[]>([null, null]);
+  const [sentPrompt, setSentPrompt] = useState<string | null>(null);
 
   // Crop image to bbox region and return as base64 with dimensions
   const cropImageToBbox = useCallback(async (
@@ -75,11 +76,14 @@ export function InferencePanel() {
       activeBboxes.push({ bbox: null, idx: 0 });
     }
 
+    const effectivePrompt = prompt || 'What action should be taken?';
+
     setIsLoading(true);
     setError(null);
     setResponse(null);
     setResponses([null, null]);
     setSentImageDimensions([null, null]);
+    setSentPrompt(effectivePrompt);
 
     try {
       const newResponses: (InferenceResponse | null)[] = [null, null];
@@ -99,8 +103,9 @@ export function InferencePanel() {
 
         const payload: Parameters<typeof runInference>[0] = {
           image_b64: imageToSend,
-          prompt: prompt || 'What action should be taken?',
+          prompt: effectivePrompt,
         };
+        console.log(`[Inference] Region ${idx + 1}: prompt="${effectivePrompt}", imageSize=${newDimensions[idx]?.width}x${newDimensions[idx]?.height}`);
 
         if (modelType === 'ocr') {
           payload.adapter = 'ocr';
@@ -139,6 +144,7 @@ export function InferencePanel() {
     setDrawnBboxes([null, null]);
     setActiveBboxIndex(0);
     setSentImageDimensions([null, null]);
+    setSentPrompt(null);
   }, []);
 
   // Handle bbox change for the active index
@@ -435,6 +441,14 @@ export function InferencePanel() {
               {error && (
                 <div className="text-red-400 bg-red-400/10 border border-red-400/30 rounded-lg p-4 mb-4">
                   <strong>Error:</strong> {error}
+                </div>
+              )}
+
+              {/* Sent prompt display */}
+              {sentPrompt && responses.filter(r => r !== null).length > 1 && (
+                <div className="bg-[var(--card)] rounded-lg p-3 mb-4">
+                  <div className="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">Sent Prompt (all regions)</div>
+                  <div className="text-sm text-white">&quot;{sentPrompt}&quot;</div>
                 </div>
               )}
 
