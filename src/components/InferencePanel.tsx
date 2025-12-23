@@ -468,12 +468,16 @@ function OutputTab({ response, sentDimensions }: { response: InferenceResponse; 
                   <span className="font-mono text-pink-400">{direction}</span>
                 </div>
               )}
-              {(pixels ?? amount ?? scrollAmount) !== undefined && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[var(--muted)]">Pixels:</span>
-                  <span className="font-mono text-pink-400">{pixels ?? amount ?? scrollAmount}</span>
-                </div>
-              )}
+              {(pixels ?? amount ?? scrollAmount) !== undefined && (() => {
+                const scrollValue = pixels ?? amount ?? scrollAmount ?? 0;
+                const scrollDir = scrollValue < 0 ? '↑ Up' : '↓ Down';
+                return (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[var(--muted)]">Scroll:</span>
+                    <span className="font-mono text-pink-400">{Math.abs(scrollValue)}px {scrollDir}</span>
+                  </div>
+                );
+              })()}
               {text && (
                 <div className="flex items-center gap-2">
                   <span className="text-[var(--muted)]">Text:</span>
