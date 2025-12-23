@@ -140,43 +140,46 @@ export function ImageDropzone({ onImageSelect, currentImage, annotations }: Prop
         />
 
         {currentImage ? (
-          <div className="relative group">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={currentImage}
-              alt="Uploaded"
-              className="max-w-full max-h-[400px] rounded mx-auto"
-            />
-            {/* Magnify button */}
-            <button
-              onClick={openFullscreen}
-              className="absolute top-2 right-2 p-2 bg-black/60 hover:bg-black/80 rounded-lg text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-              title="View fullscreen (ESC to close)"
-            >
-              <MagnifyIcon className="w-5 h-5" />
-            </button>
-            {/* Coordinate dot */}
-            {annotations?.coordinate && (
-              <div
-                className="absolute w-3 h-3 bg-red-500 border-2 border-white rounded-full -translate-x-1/2 -translate-y-1/2 shadow-lg pointer-events-none"
-                style={{
-                  left: `${annotations.coordinate[0] / 10}%`,
-                  top: `${annotations.coordinate[1] / 10}%`,
-                }}
+          <div className="flex justify-center group">
+            {/* Inline-block wrapper shrinks to image size for accurate coordinate positioning */}
+            <div className="relative inline-block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={currentImage}
+                alt="Uploaded"
+                className="max-w-full max-h-[400px] rounded block"
               />
-            )}
-            {/* Bounding box */}
-            {annotations?.bbox_2d && (
-              <div
-                className="absolute border-2 border-green-400 bg-green-400/10 pointer-events-none"
-                style={{
-                  left: `${annotations.bbox_2d[0] / 10}%`,
-                  top: `${annotations.bbox_2d[1] / 10}%`,
-                  width: `${(annotations.bbox_2d[2] - annotations.bbox_2d[0]) / 10}%`,
-                  height: `${(annotations.bbox_2d[3] - annotations.bbox_2d[1]) / 10}%`,
-                }}
-              />
-            )}
+              {/* Magnify button */}
+              <button
+                onClick={openFullscreen}
+                className="absolute top-2 right-2 p-2 bg-black/60 hover:bg-black/80 rounded-lg text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                title="View fullscreen (ESC to close)"
+              >
+                <MagnifyIcon className="w-5 h-5" />
+              </button>
+              {/* Coordinate dot - RU coords (0-1000) convert to percentages */}
+              {annotations?.coordinate && (
+                <div
+                  className="absolute w-3 h-3 bg-red-500 border-2 border-white rounded-full -translate-x-1/2 -translate-y-1/2 shadow-lg pointer-events-none"
+                  style={{
+                    left: `${annotations.coordinate[0] / 10}%`,
+                    top: `${annotations.coordinate[1] / 10}%`,
+                  }}
+                />
+              )}
+              {/* Bounding box */}
+              {annotations?.bbox_2d && (
+                <div
+                  className="absolute border-2 border-green-400 bg-green-400/10 pointer-events-none"
+                  style={{
+                    left: `${annotations.bbox_2d[0] / 10}%`,
+                    top: `${annotations.bbox_2d[1] / 10}%`,
+                    width: `${(annotations.bbox_2d[2] - annotations.bbox_2d[0]) / 10}%`,
+                    height: `${(annotations.bbox_2d[3] - annotations.bbox_2d[1]) / 10}%`,
+                  }}
+                />
+              )}
+            </div>
           </div>
         ) : (
           <div className="text-center text-[var(--muted)]">
@@ -200,14 +203,14 @@ export function ImageDropzone({ onImageSelect, currentImage, annotations }: Prop
           </div>
 
           <div
-            className="relative max-w-[95vw] max-h-[95vh]"
+            className="relative inline-block max-w-[95vw] max-h-[95vh]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={currentImage}
               alt="Fullscreen view"
-              className="max-w-full max-h-[95vh] object-contain rounded-lg"
+              className="max-w-full max-h-[95vh] object-contain rounded-lg block"
             />
             {annotations?.coordinate && (
               <div
