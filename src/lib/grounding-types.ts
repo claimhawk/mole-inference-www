@@ -22,8 +22,11 @@ export interface GroundingElement {
 /** Screen annotation with its groundable elements */
 export interface ScreenAnnotation {
   screenName: string;
+  /** Size of the cropped screen image (for element bbox calculations) */
   imageSize: [number, number];
   imagePath?: string;
+  /** Screen-level bbox in RU coords - where this window appears on a full desktop (1920x1080) */
+  screenBboxRU?: [number, number, number, number];
   elements: GroundingElement[];
 }
 

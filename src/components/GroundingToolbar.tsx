@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import { getExperts, getScreensForExpert, getElementsForScreen, getElement } from '@/lib/grounding-data';
-import { bboxToRU } from '@/lib/grounding-types';
+import { getExperts, getScreensForExpert, getElementsForScreen, getElement, getScreenBbox } from '@/lib/grounding-data';
 
 interface Props {
   /** Currently active bbox index (0, 1, or 2) */
@@ -38,22 +37,23 @@ export function GroundingToolbar({ activeBboxIndex, onElementSelect }: Props) {
   const handleScreenChange = useCallback((value: string) => {
     setSelectedScreen(value);
     setSelectedElement('');
+
+    // When screen is selected, draw the screen-level bbox
+    if (value && selectedExpert) {
+      const screenBbox = getScreenBbox(selectedExpert, value);
+      if (screenBbox) {
+        onElementSelect(screenBbox, null);
+        return;
+      }
+    }
     onElementSelect(null, null);
-  }, [onElementSelect]);
+  }, [selectedExpert, onElementSelect]);
 
   const handleElementChange = useCallback((value: string) => {
     setSelectedElement(value);
-    if (!value) {
-      onElementSelect(null, null);
-      return;
-    }
-
-    const result = getElement(selectedExpert, selectedScreen, value);
-    if (result) {
-      const ruBbox = bboxToRU(result.element.bbox, result.imageSize);
-      onElementSelect(ruBbox, result.imageSize);
-    }
-  }, [selectedExpert, selectedScreen, onElementSelect]);
+    // Element selection doesn't change bbox - screen bbox is already set
+    // Element just indicates which UI element to focus on within the screen
+  }, []);
 
   const handleClear = useCallback(() => {
     setSelectedExpert('');

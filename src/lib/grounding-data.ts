@@ -19,6 +19,8 @@ export const GROUNDING_DATA: GroundingData = {
         {
           screenName: 'account-screen',
           imageSize: [940, 931],
+          // Screen bbox on full desktop (1920x1080) in RU coords
+          screenBboxRU: [0, 44, 515, 953],
           elements: [
             {
               id: 'el_1765893610900',
@@ -50,6 +52,7 @@ export const GROUNDING_DATA: GroundingData = {
         {
           screenName: 'appointment',
           imageSize: [2768, 1572],
+          screenBboxRU: [1, 46, 1000, 956],
           elements: [
             {
               id: 'el_appointment_grid',
@@ -69,6 +72,8 @@ export const GROUNDING_DATA: GroundingData = {
         {
           screenName: 'calendar',
           imageSize: [380, 352],
+          // Calendar is a small popup - approximate position
+          screenBboxRU: [300, 300, 500, 630],
           elements: [
             {
               id: 'el_1765038341364',
@@ -150,7 +155,14 @@ export const GROUNDING_DATA: GroundingData = {
       name: 'chart-screen',
       label: 3,
       description: 'Patient chart/medical record screens',
-      screens: [],
+      screens: [
+        {
+          screenName: 'chart',
+          imageSize: [1152, 964],
+          screenBboxRU: [1, 44, 601, 937],
+          elements: [],
+        },
+      ],
     },
     {
       name: 'claim-window',
@@ -158,8 +170,9 @@ export const GROUNDING_DATA: GroundingData = {
       description: 'Insurance claim forms',
       screens: [
         {
-          screenName: 'claim-window',
-          imageSize: [800, 600],
+          screenName: 'edit-claim',
+          imageSize: [1159, 865],
+          screenBboxRU: [198, 75, 802, 876],
           elements: [
             {
               id: 'el_billing_provider',
@@ -187,7 +200,15 @@ export const GROUNDING_DATA: GroundingData = {
       name: 'desktop',
       label: 5,
       description: 'Desktop/home screen interactions',
-      screens: [],
+      screens: [
+        {
+          screenName: 'desktop',
+          imageSize: [1920, 1080],
+          // Full screen
+          screenBboxRU: [0, 0, 1000, 1000],
+          elements: [],
+        },
+      ],
     },
     {
       name: 'login-window',
@@ -197,6 +218,7 @@ export const GROUNDING_DATA: GroundingData = {
         {
           screenName: 'login-window',
           imageSize: [502, 369],
+          screenBboxRU: [361, 291, 639, 657],
           elements: [
             {
               id: 'el_1764278532765',
@@ -259,4 +281,14 @@ export function getElement(
   const element = screen.elements.find(e => e.label === elementLabel);
   if (!element) return null;
   return { element, imageSize: screen.imageSize };
+}
+
+/** Get the screen-level bbox in RU coords for a specific screen */
+export function getScreenBbox(
+  expertName: string,
+  screenName: string
+): [number, number, number, number] | null {
+  const screens = getScreensForExpert(expertName);
+  const screen = screens.find(s => s.screenName === screenName);
+  return screen?.screenBboxRU ?? null;
 }
