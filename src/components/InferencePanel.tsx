@@ -376,9 +376,20 @@ export function InferencePanel() {
                 )}
 
                 {response && !error && activeTab === 'raw' && (
-                  <pre className="whitespace-pre-wrap break-words">
-                    {JSON.stringify(response, null, 2)}
-                  </pre>
+                  <div className="relative">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(JSON.stringify(response, null, 2));
+                      }}
+                      className="absolute top-0 right-0 px-2 py-1 text-xs bg-[var(--card-border)] hover:bg-[var(--muted)]/50 rounded transition-colors"
+                      title="Copy to clipboard"
+                    >
+                      Copy
+                    </button>
+                    <pre className="whitespace-pre-wrap break-words pr-16">
+                      {JSON.stringify(response, null, 2)}
+                    </pre>
+                  </div>
               )}
               </div>
             </div>
@@ -441,6 +452,7 @@ function OutputTab({ response, sentDimensions }: { response: InferenceResponse; 
         const coordinate = args.coordinate as number[] | undefined;
         const annotation = args.annotation as string | undefined;
         const text = args.text as string | undefined;
+        const answer = args.answer as string | undefined;
         // Scroll-specific args
         const direction = args.direction as string | undefined;
         const pixels = args.pixels as number | undefined;
@@ -488,6 +500,12 @@ function OutputTab({ response, sentDimensions }: { response: InferenceResponse; 
                 <div className="flex items-center gap-2">
                   <span className="text-[var(--muted)]">Annotation:</span>
                   <span className="text-green-400">{annotation}</span>
+                </div>
+              )}
+              {answer && (
+                <div className="flex flex-col gap-1">
+                  <span className="text-[var(--muted)]">Answer:</span>
+                  <span className="text-green-400 bg-green-500/10 rounded p-2">{answer}</span>
                 </div>
               )}
             </div>
