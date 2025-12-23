@@ -19,8 +19,11 @@ export function InferencePanel() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('output');
   const [lastSuccessfulRequest, setLastSuccessfulRequest] = useState<Date | null>(null);
-  const [drawnBbox, setDrawnBbox] = useState<[number, number, number, number] | null>(null);
-  const [sentImageDimensions, setSentImageDimensions] = useState<{ width: number; height: number } | null>(null);
+  // Multi-bbox support (up to 2)
+  const [drawnBboxes, setDrawnBboxes] = useState<([number, number, number, number] | null)[]>([null, null]);
+  const [activeBboxIndex, setActiveBboxIndex] = useState<0 | 1>(0);
+  const [responses, setResponses] = useState<(InferenceResponse | null)[]>([null, null]);
+  const [sentImageDimensions, setSentImageDimensions] = useState<({ width: number; height: number } | null)[]>([null, null]);
 
   // Crop image to bbox region and return as base64 with dimensions
   const cropImageToBbox = useCallback(async (
@@ -64,66 +67,110 @@ export function InferencePanel() {
   const handleInference = useCallback(async () => {
     if (!imageB64) return;
 
+    // Get active bboxes (non-null ones)
+    const activeBboxes = drawnBboxes.map((bbox, idx) => ({ bbox, idx })).filter(b => b.bbox !== null);
+
+    // If no bboxes drawn, run on full image
+    if (activeBboxes.length === 0) {
+      activeBboxes.push({ bbox: null, idx: 0 });
+    }
+
     setIsLoading(true);
     setError(null);
-    setResponse(null);  // Clear previous response
-    setSentImageDimensions(null);
+    setResponse(null);
+    setResponses([null, null]);
+    setSentImageDimensions([null, null]);
 
     try {
-      // Crop image if bbox is drawn (all modes)
-      let imageToSend = imageB64;
-      if (drawnBbox) {
-        const cropped = await cropImageToBbox(imageB64, drawnBbox);
-        imageToSend = cropped.b64;
-        setSentImageDimensions({ width: cropped.width, height: cropped.height });
-      } else {
-        const dims = await getImageDimensions(imageB64);
-        setSentImageDimensions(dims);
+      const newResponses: (InferenceResponse | null)[] = [null, null];
+      const newDimensions: ({ width: number; height: number } | null)[] = [null, null];
+
+      for (const { bbox, idx } of activeBboxes) {
+        let imageToSend = imageB64;
+
+        if (bbox) {
+          const cropped = await cropImageToBbox(imageB64, bbox);
+          imageToSend = cropped.b64;
+          newDimensions[idx] = { width: cropped.width, height: cropped.height };
+        } else {
+          const dims = await getImageDimensions(imageB64);
+          newDimensions[idx] = dims;
+        }
+
+        const payload: Parameters<typeof runInference>[0] = {
+          image_b64: imageToSend,
+          prompt: prompt || 'What action should be taken?',
+        };
+
+        if (modelType === 'ocr') {
+          payload.adapter = 'ocr';
+        } else if (modelType === 'segment') {
+          payload.adapter = 'segment';
+        } else if (modelType === 'expert' && expertLabel !== '') {
+          payload.expert = expertLabel;
+        }
+
+        const result = await runInference(payload);
+        newResponses[idx] = result;
+
+        const errorMsg = result.error as string | null | undefined;
+        if (errorMsg) {
+          setError(errorMsg);
+        }
       }
 
-      const payload: Parameters<typeof runInference>[0] = {
-        image_b64: imageToSend,
-        prompt: prompt || 'What action should be taken?',
-      };
-
-      if (modelType === 'ocr') {
-        payload.adapter = 'ocr';
-      } else if (modelType === 'segment') {
-        payload.adapter = 'segment';
-      } else if (modelType === 'expert' && expertLabel !== '') {
-        payload.expert = expertLabel;
-      }
-
-      const result = await runInference(payload);
-      setResponse(result);
+      setResponses(newResponses);
+      setSentImageDimensions(newDimensions);
+      // Also set single response for backward compatibility
+      setResponse(newResponses[activeBboxIndex] || newResponses.find(r => r !== null) || null);
       setLastSuccessfulRequest(new Date());
-
-      const errorMsg = result.error as string | null | undefined;
-      if (errorMsg) {
-        setError(errorMsg);
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsLoading(false);
     }
-  }, [imageB64, prompt, modelType, expertLabel, drawnBbox, cropImageToBbox, getImageDimensions]);
+  }, [imageB64, prompt, modelType, expertLabel, drawnBboxes, activeBboxIndex, cropImageToBbox, getImageDimensions]);
 
   const handleClear = useCallback(() => {
     setImageB64(null);
     setResponse(null);
+    setResponses([null, null]);
     setError(null);
-    setDrawnBbox(null);
+    setDrawnBboxes([null, null]);
+    setActiveBboxIndex(0);
+    setSentImageDimensions([null, null]);
   }, []);
 
-  // Clear previous response when drawing a new bbox
+  // Handle bbox change for the active index
   const handleBboxChange = useCallback((bbox: [number, number, number, number] | null) => {
-    setDrawnBbox(bbox);
-    // Clear old response so previous annotations don't show
+    setDrawnBboxes(prev => {
+      const newBboxes = [...prev] as ([number, number, number, number] | null)[];
+      newBboxes[activeBboxIndex] = bbox;
+      return newBboxes;
+    });
+    // Clear response for this bbox
     if (bbox !== null) {
-      setResponse(null);
+      setResponses(prev => {
+        const newResponses = [...prev];
+        newResponses[activeBboxIndex] = null;
+        return newResponses;
+      });
       setError(null);
     }
+  }, [activeBboxIndex]);
+
+  // Clear a specific bbox
+  const handleClearBbox = useCallback((idx: 0 | 1) => {
+    setDrawnBboxes(prev => {
+      const newBboxes = [...prev] as ([number, number, number, number] | null)[];
+      newBboxes[idx] = null;
+      return newBboxes;
+    });
+    setResponses(prev => {
+      const newResponses = [...prev];
+      newResponses[idx] = null;
+      return newResponses;
+    });
   }, []);
 
   // Enable bbox drawing for all modes, but lock while loading
@@ -155,6 +202,9 @@ export function InferencePanel() {
     ];
   }, []);
 
+  // Get the current active bbox
+  const activeBbox = drawnBboxes[activeBboxIndex];
+
   // Extract annotations from response (MoE responses have output field with tool_call)
   const annotations = response ? (() => {
     const output = response.output as string | undefined;
@@ -166,12 +216,12 @@ export function InferencePanel() {
     let bbox_2d = parsed.toolCall.bbox_2d as [number, number, number, number] | undefined;
 
     // Transform coords if we cropped the image
-    if (drawnBbox) {
+    if (activeBbox) {
       if (coordinate) {
-        coordinate = transformToOriginal(coordinate, drawnBbox);
+        coordinate = transformToOriginal(coordinate, activeBbox);
       }
       if (bbox_2d) {
-        bbox_2d = transformBboxToOriginal(bbox_2d, drawnBbox);
+        bbox_2d = transformBboxToOriginal(bbox_2d, activeBbox);
       }
     }
 
@@ -218,7 +268,8 @@ export function InferencePanel() {
                 value={modelType}
                 onChange={(e) => {
                   setModelType(e.target.value as ModelType);
-                  setDrawnBbox(null);
+                  setDrawnBboxes([null, null]);
+                  setResponses([null, null]);
                   setResponse(null);
                   setError(null);
                 }}
@@ -249,21 +300,42 @@ export function InferencePanel() {
 
           {/* Step 2: Image */}
           <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--card-border)]">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-4">
-              2. Upload Image {!isLoading && <span className="text-blue-400 ml-2">(draw box to crop region)</span>}{isLoading && <span className="text-yellow-400 ml-2">(locked)</span>}
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
+                2. Upload Image {!isLoading && <span className="text-blue-400 ml-2">(draw box to crop region)</span>}{isLoading && <span className="text-yellow-400 ml-2">(locked)</span>}
+              </h2>
+              {/* Bbox selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[var(--muted)]">Region:</span>
+                <button
+                  onClick={() => setActiveBboxIndex(0)}
+                  className={`px-2 py-1 text-xs rounded transition-colors ${activeBboxIndex === 0 ? 'bg-blue-500 text-white' : 'bg-[var(--card-border)] text-[var(--muted)] hover:text-white'}`}
+                >
+                  1 {drawnBboxes[0] ? '●' : '○'}
+                </button>
+                <button
+                  onClick={() => setActiveBboxIndex(1)}
+                  className={`px-2 py-1 text-xs rounded transition-colors ${activeBboxIndex === 1 ? 'bg-green-500 text-white' : 'bg-[var(--card-border)] text-[var(--muted)] hover:text-white'}`}
+                >
+                  2 {drawnBboxes[1] ? '●' : '○'}
+                </button>
+              </div>
+            </div>
             <ImageDropzone
               onImageSelect={(img) => {
                 setImageB64(img);
-                setDrawnBbox(null);
+                setDrawnBboxes([null, null]);
+                setResponses([null, null]);
                 setResponse(null);
                 setError(null);
               }}
               currentImage={imageB64}
               annotations={annotations}
               enableBboxDraw={enableBboxDraw}
-              drawnBbox={drawnBbox}
+              drawnBboxes={drawnBboxes}
+              activeBboxIndex={activeBboxIndex}
               onBboxChange={handleBboxChange}
+              onBboxSelect={setActiveBboxIndex}
               samMasks={samMasks}
               samBoxes={samBoxes}
             />
@@ -336,12 +408,12 @@ export function InferencePanel() {
             );
           })()}
 
-          {/* Results */}
-          {(response || error) && (
+          {/* Results - show both bbox responses when available */}
+          {(responses.some(r => r !== null) || error) && (
             <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--card-border)]">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
-                  Raw Response
+                  Results {responses.filter(r => r !== null).length > 1 && `(${responses.filter(r => r !== null).length} regions)`}
                 </h2>
                 <div className="flex gap-2">
                   {(['output', 'timings', 'raw'] as Tab[]).map((tab) => (
@@ -360,38 +432,67 @@ export function InferencePanel() {
                 </div>
               </div>
 
-              <div className="bg-[var(--background)] rounded-lg p-4 max-h-[400px] overflow-auto font-mono text-sm">
-                {error && (
-                  <div className="text-red-400 bg-red-400/10 border border-red-400/30 rounded-lg p-4">
-                    <strong>Error:</strong> {error}
-                  </div>
-                )}
-
-                {response && !error && activeTab === 'output' && (
-                  <OutputTab response={response} sentDimensions={sentImageDimensions} />
-                )}
-
-                {response && !error && activeTab === 'timings' && (
-                  <TimingsTab timings={response.timings as Record<string, number> | undefined} />
-                )}
-
-                {response && !error && activeTab === 'raw' && (
-                  <div className="relative">
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(JSON.stringify(response, null, 2));
-                      }}
-                      className="absolute top-0 right-0 px-2 py-1 text-xs bg-[var(--card-border)] hover:bg-[var(--muted)]/50 rounded transition-colors"
-                      title="Copy to clipboard"
-                    >
-                      Copy
-                    </button>
-                    <pre className="whitespace-pre-wrap break-words pr-16">
-                      {JSON.stringify(response, null, 2)}
-                    </pre>
-                  </div>
+              {error && (
+                <div className="text-red-400 bg-red-400/10 border border-red-400/30 rounded-lg p-4 mb-4">
+                  <strong>Error:</strong> {error}
+                </div>
               )}
-              </div>
+
+              {/* Multi-response grid or single response */}
+              {responses.filter(r => r !== null).length > 1 ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {responses.map((resp, idx) => resp && (
+                    <div key={idx} className="bg-[var(--background)] rounded-lg p-4 max-h-[400px] overflow-auto font-mono text-sm">
+                      <div className={`text-xs font-bold mb-3 ${idx === 0 ? 'text-blue-400' : 'text-green-400'}`}>
+                        Region {idx + 1}
+                      </div>
+                      {activeTab === 'output' && (
+                        <OutputTab response={resp} sentDimensions={sentImageDimensions[idx]} />
+                      )}
+                      {activeTab === 'timings' && (
+                        <TimingsTab timings={resp.timings as Record<string, number> | undefined} />
+                      )}
+                      {activeTab === 'raw' && (
+                        <div className="relative">
+                          <button
+                            onClick={() => navigator.clipboard.writeText(JSON.stringify(resp, null, 2))}
+                            className="absolute top-0 right-0 px-2 py-1 text-xs bg-[var(--card-border)] hover:bg-[var(--muted)]/50 rounded transition-colors"
+                            title="Copy to clipboard"
+                          >
+                            Copy
+                          </button>
+                          <pre className="whitespace-pre-wrap break-words pr-16 text-xs">
+                            {JSON.stringify(resp, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-[var(--background)] rounded-lg p-4 max-h-[400px] overflow-auto font-mono text-sm">
+                  {response && !error && activeTab === 'output' && (
+                    <OutputTab response={response} sentDimensions={sentImageDimensions[activeBboxIndex]} />
+                  )}
+                  {response && !error && activeTab === 'timings' && (
+                    <TimingsTab timings={response.timings as Record<string, number> | undefined} />
+                  )}
+                  {response && !error && activeTab === 'raw' && (
+                    <div className="relative">
+                      <button
+                        onClick={() => navigator.clipboard.writeText(JSON.stringify(response, null, 2))}
+                        className="absolute top-0 right-0 px-2 py-1 text-xs bg-[var(--card-border)] hover:bg-[var(--muted)]/50 rounded transition-colors"
+                        title="Copy to clipboard"
+                      >
+                        Copy
+                      </button>
+                      <pre className="whitespace-pre-wrap break-words pr-16">
+                        {JSON.stringify(response, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
