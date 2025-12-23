@@ -397,7 +397,7 @@ export function ImageDropzone({ onImageSelect, currentImage, annotations, enable
               {/* Drawing indicator */}
               {enableBboxDraw && !drawnBbox && (
                 <div className="absolute bottom-2 left-2 px-2 py-1 bg-blue-500/80 rounded text-white text-xs">
-                  Draw box to focus OCR
+                  Draw box to crop region
                 </div>
               )}
               {/* Coordinate dot - RU coords (0-1000) convert to percentages */}
