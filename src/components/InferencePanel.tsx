@@ -29,6 +29,8 @@ export function InferencePanel() {
   const [sentPrompt, setSentPrompt] = useState<string | null>(null);
   // Track grounding assignments (region index → assignment)
   const [groundingAssignments, setGroundingAssignments] = useState<Map<number, GroundingAssignment>>(new Map());
+  // Key to force GroundingToolbar remount (resets dropdown state)
+  const [groundingToolbarKey, setGroundingToolbarKey] = useState(0);
 
   // Crop image to bbox region and return as base64 with dimensions
   const cropImageToBbox = useCallback(async (
@@ -150,6 +152,7 @@ export function InferencePanel() {
     setSentImageDimensions([null, null, null]);
     setSentPrompt(null);
     setGroundingAssignments(new Map());
+    setGroundingToolbarKey(k => k + 1);
   }, []);
 
   // Handle bbox change for the active index
@@ -409,6 +412,7 @@ export function InferencePanel() {
             {/* Grounding Toolbar */}
             <div className="mb-4">
               <GroundingToolbar
+                key={groundingToolbarKey}
                 activeBboxIndex={activeBboxIndex}
                 assignments={groundingAssignments}
                 onElementSelect={handleGroundingSelect}
@@ -422,6 +426,9 @@ export function InferencePanel() {
                 setResponses([null, null, null]);
                 setResponse(null);
                 setError(null);
+                setGroundingAssignments(new Map());
+                setActiveBboxIndex(0);
+                setGroundingToolbarKey(k => k + 1);
               }}
               currentImage={imageB64}
               annotations={annotations}

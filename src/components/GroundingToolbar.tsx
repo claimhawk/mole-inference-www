@@ -200,8 +200,12 @@ export function GroundingToolbar({ activeBboxIndex, assignments, onElementSelect
     setSelectedExpert('');
     setSelectedScreen('');
     setSelectedElement('');
+    // Clear all region assignments
+    for (const regionIndex of assignments.keys()) {
+      onClearRegion?.(regionIndex);
+    }
     onElementSelect(null, false);
-  }, [onElementSelect]);
+  }, [assignments, onElementSelect, onClearRegion]);
 
   // Helper to find which region an element is assigned to
   const getElementAssignedRegion = useCallback((elementLabel: string): number | null => {
