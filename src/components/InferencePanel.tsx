@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from 'react';
 import DOMPurify from 'dompurify';
 import { ImageDropzone } from './ImageDropzone';
 import { ServerStatus } from './ServerStatus';
-import { GroundingToolbar } from './GroundingToolbar';
+import { GroundingToolbar, type GroundingAssignment } from './GroundingToolbar';
 import { runInference, parseToolCall } from '@/lib/api';
 import { MODEL_TYPES, EXPERT_ADAPTERS, type ModelType, type InferenceResponse } from '@/lib/types';
 
@@ -27,6 +27,8 @@ export function InferencePanel() {
   const [sentImageDimensions, setSentImageDimensions] = useState<({ width: number; height: number } | null)[]>([null, null, null]);
   const MAX_REGIONS = 8;
   const [sentPrompt, setSentPrompt] = useState<string | null>(null);
+  // Track grounding assignments (region index → assignment)
+  const [groundingAssignments, setGroundingAssignments] = useState<Map<number, GroundingAssignment>>(new Map());
 
   // Crop image to bbox region and return as base64 with dimensions
   const cropImageToBbox = useCallback(async (
@@ -147,6 +149,7 @@ export function InferencePanel() {
     setActiveBboxIndex(0);
     setSentImageDimensions([null, null, null]);
     setSentPrompt(null);
+    setGroundingAssignments(new Map());
   }, []);
 
   // Handle bbox change for the active index
@@ -168,7 +171,7 @@ export function InferencePanel() {
   }, [activeBboxIndex]);
 
   // Handle grounding selection - sets bbox on current active region, optionally advances to next
-  const handleGroundingSelect = useCallback((bbox: [number, number, number, number] | null, autoAdvance: boolean) => {
+  const handleGroundingSelect = useCallback((bbox: [number, number, number, number] | null, autoAdvance: boolean, assignment?: GroundingAssignment) => {
     if (!bbox) return;
 
     // Set bbox on current active region
@@ -181,6 +184,15 @@ export function InferencePanel() {
       }
       return newBboxes;
     });
+
+    // Store the grounding assignment
+    if (assignment) {
+      setGroundingAssignments(prev => {
+        const newMap = new Map(prev);
+        newMap.set(activeBboxIndex, { ...assignment, regionIndex: activeBboxIndex });
+        return newMap;
+      });
+    }
 
     // Expand responses/dimensions arrays if needed
     setResponses(prev => {
@@ -215,7 +227,7 @@ export function InferencePanel() {
     setActiveBboxIndex(drawnBboxes.length); // Switch to the new region
   }, [drawnBboxes.length]);
 
-  // Clear a specific bbox
+  // Clear a specific bbox and set it as active (for toggle behavior)
   const handleClearBbox = useCallback((idx: number) => {
     setDrawnBboxes(prev => {
       const newBboxes = [...prev] as ([number, number, number, number] | null)[];
@@ -227,6 +239,14 @@ export function InferencePanel() {
       newResponses[idx] = null;
       return newResponses;
     });
+    // Clear grounding assignment for this region
+    setGroundingAssignments(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(idx);
+      return newMap;
+    });
+    // Set cleared region as active so next selection fills it
+    setActiveBboxIndex(idx);
   }, []);
 
   // Enable bbox drawing for all modes, but lock while loading
@@ -390,7 +410,9 @@ export function InferencePanel() {
             <div className="mb-4">
               <GroundingToolbar
                 activeBboxIndex={activeBboxIndex}
+                assignments={groundingAssignments}
                 onElementSelect={handleGroundingSelect}
+                onClearRegion={handleClearBbox}
               />
             </div>
             <ImageDropzone
